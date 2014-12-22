@@ -1,0 +1,24 @@
+#!/bin/bash
+function clean_filename(){
+  newname="`echo "$1" | sed 's/\[\+[^\[]*\]\+\ *//g' | sed 's/\ [\.]*/\./g' | sed 's/^[_-=\.]*//g'`"
+  #newname="`echo "$1" | sed 's/(//g'  | sed 's/)//g' `"
+}
+
+find "$1"/ -depth | while read f
+do
+    dir_name="`dirname "$f"`"
+    base_name="`basename "$f"`"
+    if [ "$base_name" != '.' ]
+    then
+      clean_filename "$base_name"
+      newname=$(echo "`realpath "$dir_name"`"/"$newname")
+    else
+      clean_filename "`realpath "$f"`"
+    fi
+    
+
+  if [ "`realpath "$f"`" != "$newname" ]
+  then
+    mv -vb "`realpath "$f"`" "$newname"
+  fi
+done

@@ -1,0 +1,176 @@
+#!/bin/bash
+# check v1.1 by joh
+# rutas con espacios no funciona por argumentos, si por stdin
+# carga info de "mirroring"
+# REVISAR: crear la carpeta .log en WD o HOME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+FLAG_BCK=0 # determines if input is the log that writes this file (when doing a BACKUP)
+FLAG_WRITE=0 # if the mirror log has been written
+FLAG_MIRROR=1 # if -n flag is set
+FLAG_STDIN=0 # if there aren't available arguments (go for STDIN)
+FLAG_INPUT=0 # if there is stdin available (determined with read -t)
+FLAGFORCE=0
+input_end=0
+
+
+# registra cambios a realizar en BACKUP (estos cambios se deben ejecutar antes de ejecutar rsync de la forma 'cat <check_log> | check'
+# esto permite que rsync no "vea diferencias" / no borre y vuelva a copiar los mismos datos
+bck_log() {
+   if [ -f "$1" ]
+   then
+      if [ "/" == `echo "$1" | cut -c1` ]
+      then
+         # al usar una ruta absoluta, no necesitamos guardar path actual
+         rel_dir=""
+      else
+         rel_dir="${PWD}/"
+      fi
+         dir_name=`dirname "$rel_dir$1"`
+         base_name=`basename "$1"`
+         # hacemos cd para obtener ruta PWD sin paths relativos (dirname solo extrae el nombre del fichero)
+         cd "$dir_name"
+         # evitamos symlinks para ver la ruta real
+         pwd_physical="`pwd -P`"
+         FLAG_DUP=`echo "$pwd_physical" | grep -c "$orig_mpoint"`
+         if [ $FLAG_DUP == "1" ]
+         then
+            echo "$pwd_physical/$base_name" | sed "s/`basename $orig_mpoint`/`basename $dest_mpoint`/g" >> $check_log
+            FLAG_WRITE=1
+         fi  
+         cd - > /dev/null
+   fi  
+}
+
+# marcar (cambiar de nombre y dejar registro de cambios a hacer en backup SOLO SI SE HACE mv)
+mark() {
+   if [ -f "$1" ]
+   then
+      if [ `mediainfo "$1" | grep -c '^Video$'` == "1" ]
+      then
+
+         dir="`dirname "$1"`"
+         ext="`echo "$1" | sed 's/.*\.//'`"
+         name="`basename "$1" .$ext`"
+
+         # set mark
+         if [[ `echo "$name" | grep -c $MARK` == 0 ]]
+         then
+            if [[ $FLAG_MIRROR == "1" ]]; then bck_log "$1"; fi
+            mv -v "$1" "$dir/$name$MARK.$ext" | tee -a $log_file
+         # unset mark
+         else
+            if [[ $FLAGFORCE == 0 ]]
+            then
+               if [[ $FLAG_MIRROR == "1" ]]; then bck_log "$1"; fi
+               mv -v "$1" "`echo "$1" | sed "s/$MARK//g"`" | tee -a $log_file
+            fi
+         fi
+      fi
+   else
+      # en el caso que no exista el fichero en backup no es necesario informar
+      if [[ $FLAG_BCK == 0 ]]
+      then
+         echo "El fichero a marcar no existe"
+      fi
+   fi
+}
+
+
+while [ $input_end == 0 ]
+do
+	case "$1" in
+		"-h" | "--help" )
+         echo "check[uncheck] v1.1 by joh"
+			echo "command usage: check [-m|--mark MARK] [-f|--force] FILE1 [FILE2] ... [FILEN]"
+         echo "-f | --force, forces file to be marked, even if previously marked (the normal behavior would be unmark)"
+         echo "-m | --mark, sets the mark to be written into the file names"
+         echo "-n | --no-mirror, don't generate log to replicate changes in mirror (before doing rsync)"
+			exit 0
+		;;
+		"-f" | "--force" )
+			FLAGFORCE=1
+			shift
+		;;
+		"-m" | "--mark" )
+			shift
+			declare -r MARK="$1"
+			shift
+		;;
+		"-n" | "--no-mirror" )
+         FLAG_MIRROR=0
+			shift
+		;;
+		* )
+			input_end=1		
+         if [[ -z "$1" ]]
+         then
+            FLAG_STDIN=1
+         fi
+		;;
+		-* | --* )
+			echo "Invalid parameter"	
+			exit 1	
+		;;
+	esac
+done
+
+if [ -z $MARK ]
+then 
+	declare -r MARK="_X_"
+fi
+
+# creación logs
+if [[ $FLAG_MIRROR == 1 ]]
+then
+    # carga de información de mirror para replicar cambios mediante log
+    orig_mpoint="/media/BOOK/"
+    dest_mpoint="/media/BOOK-BCK/"
+    check_log="$orig_mpoint/.check.log"
+   mkdir "$orig_mpoint/.log" 2> /dev/null
+   log_file="$orig_mpoint/.log/check_`date +%s`.log"
+   # log para replicar cambios
+   if [[ ! -f $check_log && -d "$orig_mpoint" ]]
+   then
+      echo "# BACKUP LOG" > $check_log
+   fi
+else
+   mkdir "$HOME/.log" 2> /dev/null
+   log_file="$HOME/.log/`date +%s`.log"
+fi
+
+# por argumento
+for argument in $*
+do
+   mark "$argument"
+   shift
+done
+
+
+if [ $FLAG_STDIN == "1" ]
+then
+   # por entrada estándar
+   while read -t 5 input_line
+   do
+      if [[ $input_line == "# BACKUP LOG" ]]
+      then
+        FLAG_BCK=1
+      else
+         mark "$input_line"
+      fi
+      FLAG_INPUT=1
+   done
+fi
+
+if [[ $FLAG_INPUT == "0" && $FLAG_STDIN == "1" ]]
+then
+   echo "No hay ficheros de entrada para marcar, ni stdin, ni argumentos"
+fi
+
+if [ $FLAG_BCK == "1" ]
+then
+   rm -f  $check_log
+fi
+
+if [ $FLAG_WRITE == "1" ]
+then
+   echo "Log de backup: `cat $check_log | tail -n+2 | wc -l` registro/s"
+fi

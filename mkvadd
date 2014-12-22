@@ -1,0 +1,669 @@
+#!/bin/bash 
+# mkvadd    - add an ac3 track from a dts track (remove dts if wanted)
+#           - add one or more .srt as tracks into mkv 
+#           - add tracks from video into a mkv container
+#	    - split original file linking mkv segments if necessary (fat fs destination)
+# set max priority, you can modify sudoers -> your_user ALL = NOPASSWD: /usr/bin/renice 
+sudo renice -n -20 -p $$ > /dev/null
+# falta explicación de que hace por defecto: mete ac3 subs 
+
+displayhelp() {
+	# loading variables of the config file for showing help		
+	if [ -s ~/.mkvaddconfig ] 
+	then	
+		. ~/.mkvaddconfig
+	fi
+	echo "-----------------------------------------------------------------------------"
+	echo "Usage: $0 [options] <filename>"
+	echo "Options:"
+	echo "     -h, --help                Print this help"
+	echo "     -i, --interactive         Allow prompts to wait for user input"
+	echo "     -a, --ac3-only            Add ac3 track ONLY (do not add subtitles)"
+	echo "     -s, --srt-only            Add .srt track ONLY (do not add ac3 track)"
+	echo "     -c, --copy-only           Copy the file ONLY (neither add subtitles nor ac3 track)"
+	echo "     -k, --keep-original       Keep original video file"
+	echo "     -r, --remove-dts          Remove dts track WHEN ADDING ac3 track" 
+	echo "     -f, --force-split         Force split file on non fat fs"
+	echo "     -d, --destination         Set the default destination of the file to mux"
+	echo "     -l, --lang-preferences    Set the default language of the .srt to add"
+	echo "-----------------------------------------------------------------------------"
+	echo "                               default destination: $DEST"
+	echo "                               default .srt languages: ${LANG[@]}"
+	echo "-----------------------------------------------------------------------------"
+	echo "to add .srt in batch mode name the file like this: videofilename.eng.srt, where eng is the three letter code for English language"
+}
+
+exit_f() {
+	# rm temp file
+	if [ -f "$NEWFILE" ]
+	then
+		echo "> rm -f \"$NEWFILE\""
+		rm -f "$NEWFILE"
+	fi
+	
+	# rm original video file
+	if [[ $FLAGKEEP -eq 0 && "$1" -eq 0 ]]
+	then
+		rm -f "$MKVFILE"
+		rm -f "*.nfo"
+		rmdir "$FILESPATH" 2> /dev/null
+		if [ $? -eq 1 ]
+		then 
+			echo "WARNING: Original directory cannot be removed, there are other files"
+		fi
+	fi
+
+	# rm AC3 file
+	if [[ -f "$AC3FILE" && "$1" -eq 0 ]]
+	then
+		echo "> rm -f \"$AC3FILE\""
+		rm -f "$AC3FILE"
+	fi
+
+	# rm srt files
+	if [[ ! -z $SRTLIST && "$1" -eq 0 ]]
+	then
+		echo "> rm -f \"$SRTLIST\""
+		echo "$SRTLIST" | xargs rm -f
+	fi
+
+	# rm if empty dest directory
+	if [ ! -z "$DEST" ]
+	then
+		rmdir --ignore-fail-on-non-empty "${DEST}"
+	fi
+
+	# rm if empty temp directory
+	if [ ! -z "$WD" ]
+	then
+		rmdir --ignore-fail-on-non-empty "$WD"
+	fi
+
+	if [[ "$1" -eq 1 ]]
+	then
+		if [ -f "$AC3FILE" ]
+		then
+			echo "Please remove manually $AC3FILE"
+		fi
+
+		if [ ! -z "$SRTLIST" ]
+		then
+			echo "Please remove manually $SRTLIST"
+		fi		
+	fi
+
+	exit $1
+}
+
+# main
+
+# Display version header
+echo "-----------------------------------------------------------------------------"
+echo "mkvadd - by joh <jordihv@gmail.com>"
+
+# validate dependencies or exit
+if [ -z "$(which mkvmerge)" -o ! -x "$(which mkvmerge)" ]; then
+	echo "ERROR: The program 'mkvmerge' is not in the path. Is mkvtoolnix installed?"
+	exit 1
+elif [ -z "$(which mkvextract)" -o ! -x "$(which mkvextract)" ]; then
+	echo "ERROR: The program 'mkvextract' is not in the path. Is mkvtoolnix installed?"
+	exit 1
+elif [ -z "$(which mkvinfo)" -o ! -x "$(which mkvinfo)" ]; then
+	echo "ERROR: The program 'mkvinfo' is not in the path. Is mkvtoolnix installed?"
+	exit 1
+elif [ -z "$(which dcadec)" -o ! -x "$(which dcadec)" ]; then
+	echo "ERROR: The program 'dcadec' is not in the path. Is libdca-utils installed?"
+	exit 1
+elif [ -z "$(which aften)" -o ! -x "$(which aften)" ]; then
+	echo "ERROR: The program 'aften' is not in the path. Is aften installed?"
+	exit 1
+elif [ -z "$(which subdownloader)" -o ! -x "$(which subdownloader)" ]; then
+	echo "ERROR: The program 'subdownloader' is not in the path. Is subdownloader installed?"
+	exit 1
+elif [ -z "$(which imdb-get)" -o ! -x "$(which imdb-get)" ]; then
+	echo "ERROR: The program 'imdb-get' is not in the path. Is imdb-tools installed?"
+	exit 1
+fi
+
+# Set constants 
+declare -r HDDIR="HD/"
+declare -r SDDIR="SD/"
+declare -r TMPDIR=".tmp/"
+declare -r USER_OPENSUBS='joh417'
+declare -r PASSWD_OPENSUBS='h2gqy-'
+declare -a -r LANGLST=( eng spa fre ger ita)
+
+# Initialize vars
+#DEST='$HOME'
+DEST='/media/BOOK/Vídeos/Cine/'
+declare -a LANG=''
+FLAGSRT=0
+FLAGAC3=0
+FLAGCP=0
+FLAGSPLIT=0
+FLAGRMDTS=0
+FLAGINT=0
+FLAGKEEP=0
+
+touch ~/.mkvaddconfig
+
+# Parse arguments and/or filename
+while [ -z "$MKVFILE" ]; do
+
+# If we're out of arguments no filename was passed
+if [ $# -eq 0 ]; then
+	echo "ERROR: You must supply a filename."
+	echo ""
+	displayhelp
+	exit 1
+fi
+
+case "$1" in
+	"-k" | "--keep-original" )
+		FLAGKEEP=1
+	;;
+	"-i" | "--interactive" )
+		FLAGINT=1
+	;;
+	"-f" | "--force-split" )
+		FLAGSPLIT=1
+	;;
+	"-r" | "--remove-dts" )
+		FLAGRMDTS=1
+	;;
+	"-a" | "--ac3-only" )
+		FLAGAC3=1
+	;;
+	"-s" | "--srt-only" )
+		FLAGSRT=1	
+	;;
+	"-c" | "--copy-only" )	
+		FLAGCP=1
+	;;
+	"-l" | "--lang-preferences" )	
+		grep -v "LANG" ~/.mkvaddconfig > ~/.mkvaddconfig_temp
+		i=0
+
+		for opt in ${LANGLST[@]}
+		do
+			read -n1 -p "Add language [$opt] [y/N]?"
+			echo ""
+
+			if [ $REPLY = "y" -o $REPLY = "Y" ]
+			then	
+				echo "LANG[$i]=$opt" >> ~/.mkvaddconfig_temp
+				(( i++ ))
+			fi
+		done
+
+		mv ~/.mkvaddconfig_temp ~/.mkvaddconfig	
+		. ~/.mkvaddconfig
+		echo "-----------------------------------------------------------------------------"
+		echo "                               default .srt languages: ${LANG[@]}"
+		echo "-----------------------------------------------------------------------------"
+		exit 0
+	;;
+	"-d" | "--destination" )
+		shift
+		grep -v "DEST" ~/.mkvaddconfig > ~/.mkvaddconfig_temp
+		echo "DEST=\"$1\"" >> ~/.mkvaddconfig_temp
+		mv ~/.mkvaddconfig_temp ~/.mkvaddconfig	
+		. ~/.mkvaddconfig
+		echo "-----------------------------------------------------------------------------"
+		echo "                               default destination: $DEST"
+		echo "-----------------------------------------------------------------------------"
+		exit 0
+	;;
+	"-h" | "--help" )
+		displayhelp
+		exit 0
+	;;
+	-* | --* )
+		echo "ERROR: Invalid argument '$1'."
+		displayhelp
+		exit 1
+	;;
+	* )
+		MKVFILE="$1"
+		shift
+		if [ $# -ne 0 ]; then
+			echo "ERROR: You cannot supply any arguments after the filename." 
+			echo ""
+			displayhelp
+			exit 1
+		fi
+	;;
+esac 
+
+# Move arguments "up" one spot
+shift
+done
+
+. ~/.mkvaddconfig
+
+# Check the file exists and we have permissions
+if [ ! -f "$MKVFILE" ]
+then
+  echo "ERROR: '$MKVFILE' is not a file."
+  exit 1
+elif [ ! -r "$MKVFILE" ]
+then
+  echo "ERROR: Cannot read '$MKVFILE'."
+  exit 1
+fi
+
+# Check if we have enough space in destination for the original file (minimum required)
+MKVFILESIZE=$(du "$MKVFILE" | awk '{print $1}')
+DESTFREESPACE=$(df "$DEST" | tail -n 1 | awk '{print $4}')
+if [ $MKVFILESIZE -gt $DESTFREESPACE ]; then
+	echo "ERROR: There is not enough free space on '$DEST' to create the new file."
+	exit 1
+fi
+
+# Create working directory
+WD="${DEST}/${TMPDIR}"
+mkdir "$WD" 2> /dev/null
+
+# original extension
+EXT=`echo $MKVFILE | sed 's/.*\.//'`
+
+# original name (no extension)
+NAME=$(basename "$MKVFILE" .$EXT)
+
+# set default destination name (no extension)
+DESTNAME=`echo $NAME | sed 's/\ /./g'`
+
+# clean name for searching in imdb
+SRCNAME=`echo $NAME | sed 's/\.[0-9]\{4\}\..*//g' | sed 's/\./\ /g'`
+
+# path of source files
+FILESPATH="$(dirname "$MKVFILE")/"
+
+# Setup temporary files
+DTSFILE="/tmp/$NAME.dts"
+AC3FILE="/tmp/$NAME.ac3"
+NEWFILE="$WD$NAME.$EXT.tmp"
+
+# Set split flag if destination device is fat
+PARTITION=`echo $DEST | cut -d "/" -f1-3`
+if [ 1 == `cat /etc/mtab | grep "$PARTITION" | grep -c vfat` ]
+then
+	FLAGSPLIT=1
+fi
+
+# Set start time execution
+START=$(date +%s)
+
+# show user input and more
+echo "VAR DUMP----------------------------------------------------------------------------------------------"
+echo "ORIPATH: $FILESPATH"
+echo "ORIFILE: $NAME.$EXT"
+echo "SRCNAME: $SRCNAME"
+echo "------------------------------------------------------------------------------------------------------"
+echo "WORKDIR: $WD"
+echo "TMPFILE: $NEWFILE"
+echo "DTSFILE: $DTSFILE"
+echo "AC3FILE: $AC3FILE"
+echo "------------------------------------------------------------------------------------------------------"
+echo "SRTLANG: ${LANG[@]}"
+echo "------------------------------------------------------------------------------------------------------"
+echo "DSTPATH: $DEST"
+echo "------------------------------------------------------------------------------------------------------"
+echo "START: $START"
+echo "------------------------------------------------------------------------------------------------------"
+echo "CPONLY: $FLAGCP"
+echo "SRTONLY: $FLAGSRT"
+echo "AC3ONLY: $FLAGAC3"
+echo "SPLIT: $FLAGSPLIT"
+echo "RMDTS: $FLAGRMDTS"
+echo "------------------------------------------------------------------------------------------------------"
+
+# check ONLY flags (user input) are unique
+count=$(($FLAGSRT+$FLAGAC3+$FLAGCP))
+if [ $count -gt 1 ]
+then
+	echo "ERROR: You cannot set more than one \"only flag\""
+	exit_f 1
+fi
+
+# if no flags set (flagcp included) DO ALL
+if [ $FLAGSRT -eq 0 -a $FLAGAC3 -eq 0 -a $FLAGCP -eq 0 ]
+then
+	FLAGSRT=1
+	FLAGAC3=1
+fi
+
+# if flag REMOVE DTS is set and FLAGAC3 is not exit_f with error
+if [ $FLAGRMDTS -eq 1 -a $FLAGAC3 -eq 0 ]
+then
+	echo "ERROR: You cannot set remove DTS flag when there is no AC3 audio conversion"
+	exit_f 1
+fi
+
+# set destination directory, requires user input (done before muxing)
+width=`mkvinfo "$MKVFILE" | grep "Pixel width" | awk -F": " '{print $2}'` 
+
+
+case "$width" in
+1920)
+	resolution=.1080p
+	DEST="${DEST}/${HDDIR}"
+;;
+1280)
+	resolution=.720p
+	DEST="${DEST}/${HDDIR}"
+;;
+720)
+	resolution=.480p
+	DEST="${DEST}/${SDDIR}"
+;;
+*)      
+	if [[ $width -ge 1850 ]]
+	then
+		resolution=.1080p
+		DEST="${DEST}/${HDDIR}"
+	else
+		if [ $FLAGINT -eq 1 ]
+		then
+			read -n1 -p "Impossible to read resolution information. Select: 1) 1080,  2) 720, 3) 480 *) other"
+			echo ""
+			case $REPLY in 
+			"1" )
+				resolution=.1080p
+				DEST="${DEST}/${HDDIR}"
+			;;
+			"2" )
+				resolution=.720p
+				DEST="${DEST}/${HDDIR}"
+			;;
+			"3" )
+				resolution=.480p
+				DEST="${DEST}/${SDDIR}"
+			;;
+			* )
+				DEST="${DEST}/${SDDIR}"
+			;;
+			esac
+		else
+			DEST="${DEST}/${SDDIR}"
+		fi
+	fi
+;;
+esac
+
+mkdir "${DEST}" 2> /dev/null
+
+# set file name, requires user input (done before muxing)
+while [ $FLAGINT -eq 1 ]
+do
+	read -n1 -p "Select: 1) IMDB naming 2) Manual naming ENTER) Default naming/confirm previous naming" 
+
+	case $REPLY in 
+		"1" )
+			# Set file name (IMDB, mkvinfo)
+			echo ""
+			echo "Select the name of your film (Ctrl+C, otherwise)"
+			imdb-get -t -y -s "$SRCNAME" | tee /tmp/filminfo.tmp
+
+			title=`cat /tmp/filminfo.tmp | grep title | awk -F"title: " '{print $2}' | sed 's/\ /./g'`
+
+			if [ ! -z $title ]
+			then
+				year=`cat /tmp/filminfo.tmp | grep year | awk -F"year: " '{print $2}'`
+				rm /tmp/filminfo.tmp
+				DESTNAME=${title}.${year}${resolution}
+			fi
+
+			echo ""
+			echo "FILENAME: $DESTNAME"
+		;;
+		"2" )
+			echo ""
+			read -p "Film name:" 
+			title=`echo "$REPLY" | sed 's/\ /\./g'`
+			echo ""
+			read -p "Film year:" 
+			year=$REPLY
+			
+			DESTNAME=${title}.${year}${resolution}
+
+			echo ""
+			echo "FILENAME: $DESTNAME"
+		;;
+		* )
+			echo ""
+			DESTNAME=`echo $SRCNAME | sed 's/\ /./g'`
+			echo "FILENAME: $SRCNAME"
+			break;
+		;;
+	esac
+done
+
+if [ $FLAGINT -eq 0 ]
+then
+	DESTNAME=`echo $SRCNAME | sed 's/\ /./g'`
+        echo "FILENAME: $SRCNAME"
+fi
+
+CMD="mkvmerge -o \"$NEWFILE\" --title \"$DESTNAME\" \"$MKVFILE\""
+
+# split and link output file if flag enabled
+if [ $FLAGSPLIT -eq 1 ]
+then
+	CMD="$CMD --split size:4023m --link"
+fi
+
+# if flag set, add srt tracks
+if [ $FLAGSRT -eq 1 ]
+then
+	if [ -z $LANG ]
+	then
+		echo 'ERROR: There is no language available in the config file, set language preferences with -l option.'
+		exit_f 1
+	fi
+
+	SUB_EXISTS=0
+
+	for LANG_PAR in ${LANG[@]}
+	do
+		SRTFILE="$FILESPATH$NAME.$LANG_PAR.srt"
+		
+		# Check if there are any subtitles
+		REPLY=""
+		while [[ ! -f "$SRTFILE" && $REPLY != "n" && $REPLY != "N" ]]
+		do
+			ls "$FILESPATH" > /tmp/filesbefored
+			echo ""
+			echo "Searching subtitles, please wait..."
+
+			# Download subtitles (video needs always a path!!) MKVFILE is not valid!!
+			subdownloader -c -q --video="$FILESPATH/$NAME.$EXT" --lang=$LANG_PAR --rename-subs -u $USER_OPENSUBS -p $PASSWD_OPENSUBS 2> ~/.mkvsubdown.log
+
+			ls $FILESPATH > /tmp/filesafterd
+			
+			# get name of the file downloaded or zero
+			SUBDOWNFILE="`diff /tmp/filesbefored /tmp/filesafterd | grep ">" | awk -F"> " '{print $2}'`"
+
+			rm /tmp/filesbefored /tmp/filesafterd
+
+			if [ -f "${FILESPATH}${SUBDOWNFILE}" ]
+			then
+				mv  "${FILESPATH}${SUBDOWNFILE}" "$SRTFILE"
+			else
+				if [ $FLAGINT -eq 1 ]
+				then
+					read -n1 -p "No subtitle found [$LANG_PAR]. You can try again [T], or continue to next [N] language"
+				else
+					REPLY=N
+				fi
+			fi
+		done	
+	       
+		while [[ $REPLY != "y" && $REPLY != "n" && $REPLY != "Y" && $REPLY != "N" ]]
+		do 
+			if [ $FLAGINT -eq 1 ]
+			then
+				# Show preview and prompt	
+				echo ""
+				echo "***SUBTITLE PREVIEW [$LANG_PAR]**************************************************"
+				head -n20 "$SRTFILE"
+				echo "*********************************************************************"
+				read -n1 -p "Do you want to add the above subtitle? [Y/N] Press any other key to refresh"
+				echo ""
+			else
+				REPLY=y
+			fi
+
+			if [ $REPLY = "y" -o $REPLY = "Y" ]
+			then	
+				(( SUB_EXISTS++ ))
+				SRTLIST="$SRTLIST \"$SRTFILE\""
+				
+				if [ $SUB_EXISTS -eq 1 ]
+				then
+					CMD="$CMD --default-track 0 "
+					# Erases first space of SRTLIST
+					SRTLIST=`echo $SRTLIST | sed 's/\ /\./'`
+				fi
+		
+				if [ $LANG_PAR = "spa" ]
+				then	
+					CMD="$CMD --sub-charset 0:"ISO-8859-1""		
+				fi
+		
+				CMD="$CMD --language 0:$LANG_PAR \"$SRTFILE\""
+			fi
+
+			if [ $REPLY = "n" -o $REPLY = "N" ]
+			then	
+				rm "$SRTFILE"
+			fi
+		done
+		
+	done
+fi
+
+# search for the first DTS audio track and convert to ac3
+if [ $FLAGAC3 -eq 1 ]
+then
+	echo ""
+	echo "Find first DTS track in MKV file"
+	DTSTRACK=$(mkvmerge -i "$MKVFILE" | grep -m 1 "audio (A_DTS)" | cut -d: -f1 | cut -d" " -f3)
+	
+	# Check to make sure there is a DTS track in the MKV, if not continue
+	if [ -z $DTSTRACK ]
+	then
+		echo '>>>>>> There is no DTS track.'
+	else
+
+		# Get the language for the DTS track specified
+		echo ""
+		echo "Extract language from selected DTS track."
+		echo "> mkvinfo \"$MKVFILE\" | grep -A 12 \"Track number: $DTSTRACK\" | tail -n 1 | cut -d\" \" -f5"
+
+		DTSLANG=$(mkvinfo "$MKVFILE" | grep -A 12 "Track number: $DTSTRACK" | tail -n 1 | cut -d" " -f5)
+		echo ">$DTSLANG<"
+
+		# Extract the DTS track
+		echo ""
+		echo "Extract DTS file from MKV."
+		echo "> mkvextract tracks \"$MKVFILE\" $DTSTRACK:\"$DTSFILE\""
+
+		mkvextract tracks "$MKVFILE" $DTSTRACK:"$DTSFILE"
+			
+		# Check to make sure the extraction completed successfully
+		if [ $? -ne 0 ]; then
+			echo "ERROR: Extracting the DTS track failed."
+			exit_f 1
+		fi
+
+		# Convert DTS to AC3
+		echo ""
+		echo "Converting DTS to AC3."
+		echo "> dcadec -o wavall \"$DTSFILE\" | aften - \"$AC3FILE\""
+
+		dcadec -o wavall "$DTSFILE" | aften - "$AC3FILE"
+
+		# Check to make sure the conversion completed successfully
+		if [ $? -ne 0 ]; then
+			echo "ERROR: Converting the DTS to AC3 failed."
+			
+			rm -f "$DTSFILE" #clean up
+			rm -f "$AC3FILE" #clean up
+			exit_f 1
+		fi
+
+		# Remove DTS file
+		echo ""
+		echo "Removing temporary DTS file."
+		echo "> rm -f \"$DTSFILE\""
+
+		rm -f "$DTSFILE"
+				
+		# Check there is enough free space for AC3+MKV
+		MKVFILESIZE=$(du "$MKVFILE" | awk '{print $1}')
+		AC3FILESIZE=$(du "$AC3FILE" | awk '{print $1}')
+		WDFREESPACE=$(df "$WD" | tail -n 1 | awk '{print $4}')
+		if [ $(($MKVFILESIZE + $AC3FILESIZE)) -gt $WDFREESPACE ]; then
+			echo "ERROR: There is not enough free space on '$WD' to create the new file."
+			
+			exit_f 1
+		fi
+
+		if [ $FLAGRMDTS -eq 1 ]
+		then
+			CMD="$CMD -A"
+		fi
+
+		CMD="$CMD --default-track 0"
+
+		# If the language was set for the original DTS track set it for the AC3
+		if [ $DTSLANG ]; then
+			CMD="$CMD --language 0:$DTSLANG"
+		fi
+
+		# Append new AC3
+		CMD="$CMD \"$AC3FILE\""
+
+		fi
+fi
+
+# Run it!
+
+echo ""
+echo "Running main remux."
+echo "> $CMD"
+
+eval $CMD
+
+if [ $? -ne 0 ]; then
+	echo "ERROR: Merging the AC3 track back into the MKV failed."
+	exit_f 1
+fi
+
+
+if [ $FLAGSPLIT -eq 1 ]
+then
+	NUMSPLIT=1
+	ls $WD | while read f
+	do
+		echo "${WD}mv \"$f\" \"$DEST/$DESTNAME-$NUMSPLIT.mkv\""
+		mv "$WD$f" "$DEST/$DESTNAME-$NUMSPLIT.mkv"
+		(( NUMSPLIT++ ))
+	done
+else
+	echo "mv \"$NEWFILE\" \"$DEST/$DESTNAME.mkv\""
+	mv "$NEWFILE" "$DEST/$DESTNAME.mkv"
+fi
+
+if [ $? -ne 0 ]; then
+	echo "ERROR: Moving to $DEST failed."
+	exit_f 1
+fi
+
+# Display total execution time
+END=$(date +%s)
+
+echo "Total processing time: $(($END - $START)) seconds."
+
+exit_f 0

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# instrucciones ejecución no interactiva (ejecutado mediante enlace simbólico):
+#1r click:         previsualización 
+#[2o click:        cancela previsualización]
+#cerrar preview:   grabar
+#2o click:         parar (hay que esperar a que termine)
+
+
+killall tvtime && killall /bin/bash && exit
+killall mencoder && exit
+
+sudo modprobe -r em28xx
+sudo modprobe em28xx card=64
+
+sleep 2
+
+tvtime
+
+#mencoder tv:// -tv device=/dev/video0:input=0:norm=PAL-60:width=384:height=288:forceaudio:alsa:adevice=hw.1,0:audiorate=48000 -o ~/Escritorio/videovhs`date +%F-%T`.avi -ovc lavc -lavcopts vcodec=mpeg4:vbitrate=2000 arate=48000 -oac mp3lame #-lameopts mode=3
+#mencoder tv:// -tv device=/dev/video0:input=0:norm=PAL:forceaudio:alsa:adevice=hw.1,0:audiorate=48000 -o ~/Escritorio/videovhs`date +%F-%T`.avi -ovc divx4 -divx4opts vcodec=q=5 -vf lavcdeint arate=48000 -oac mp3lame #-lameopts mode=3
+
+mencoder tv:// -tv device=/dev/video0:input=0:norm=PAL:forceaudio:alsa:adevice=hw.1,0:audiorate=48000 -o ~/Escritorio/videovhs`date +%F-%T`.avi -ovc lavc -lavcopts vcodec=mpeg4:vhq:vbitrate=1200 -vf lavcdeint arate=48000 -oac mp3lame #-lameopts mode=3

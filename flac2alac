@@ -1,0 +1,23 @@
+#!/bin/sh
+# Dependencies: metaflac (flac), ffmpeg
+echo ""
+echo "flac2alac."
+echo ""
+
+if [ "$1" ]
+then
+
+ftitle=`metaflac --show-tag=TITLE "$1" | cut -d"=" -f2-`
+fartist=`metaflac --show-tag=ARTIST "$1" | cut -d"=" -f2-`
+falbum=`metaflac --show-tag=ALBUM "$1" | cut -d"=" -f2-`
+fdate=`metaflac --show-tag=DATE "$1" | cut -d"=" -f2-`
+ftnum=`metaflac --show-tag=TRACKNUMBER "$1" | cut -d"=" -f2-`
+fgenre=`metaflac --show-tag=GENRE "$1" | cut -d"=" -f2-`
+aname=`basename "$1" .flac`.m4a
+
+ffmpeg  -i "$1" -acodec alac -metadata title="$ftitle" -metadata author="$fartist" -metadata album="$falbum" -metadata year="$fdate" -metadata track="$ftnum" -metadata genre="$fgenre" "$aname"
+else
+	echo "No arguments"
+	echo ""
+exit 1
+fi

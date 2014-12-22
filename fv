@@ -1,0 +1,46 @@
+#!/bin/bash
+# by jordihv at gmail.com
+show_error()
+{
+	echo 'Invalid arguments' >&2
+	exit 1
+}
+
+if [ -z $1 ]; then
+	show_error
+fi
+
+if [ -z $3 ]; then
+	player=mplayer
+else
+	player=vlc
+fi
+
+declare -a array
+i=1
+
+if [ -z "$2" ]; then
+	DIRS_FIND="$HOME"
+else
+	DIRS_FIND="$2"
+fi
+
+search="`find $DIRS_FIND -iname "*$1*" | sort`\n"
+while read var
+do
+	echo "[$i] $var"
+	array[$i]="$var"
+	(( i ++ ))
+done < <(echo -ne "$search")
+if [[ $i != '1' ]]; then
+	echo "[a] Play all"
+	echo "[r] Play all in reverse order"
+	read -s -n 1 -p $'Select a file:\n' option
+	if [[ $option =~ ^[aA]$ ]]; then
+		echo -ne "$search" | tr '\n' '\0' | xargs -0 $player
+	elif [[ $option =~ ^[rR]$ ]]; then
+		echo -ne "$search" | sort -r | tr '\n' '\0' | xargs -0 $player
+	elif [[ $option =~ ^[0-9]+$ ]]; then
+		$player "${array[${option}]}"
+	fi
+fi

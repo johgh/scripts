@@ -1,0 +1,2 @@
+#!/bin/bash
+while inotifywait -e close_write /var/log/phplog; do guake -s 0; done >/dev/null 2>&1 &

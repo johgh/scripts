@@ -1,0 +1,5 @@
+#!/bin/bash
+#killall guake > /dev/null 2>&1
+#guake > /dev/null 2>&1 & sleep 2
+## guake tabs
+guake --execute-command="tmux -2"

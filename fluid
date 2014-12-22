@@ -1,0 +1,4 @@
+#!/bin/bash
+qjackctl &
+sleep 2
+jack-dssi-host -a fluidsynth-dssi.so -p /usr/share/sounds/sf2/

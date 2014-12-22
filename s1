@@ -1,0 +1,11 @@
+#!/bin/bash
+#ct=`xrandr | grep -c 'HDMI2 disconnected'`
+#if [[ $ct -ne 0 ]]
+#then
+   sudo chvt 6
+   sleep 1
+   sudo chvt 7
+   sleep 4
+#fi
+xrandr --output HDMI2 --off
+xrandr --output VGA1 --auto

@@ -1,0 +1,65 @@
+#!/bin/bash
+# allows mounting drive without privileges and by label without reference at /etc/fstab
+FLAG_U=0
+
+# PARSING
+while [ ! -z "$1" ]
+   do
+   case "$1" in
+      -h | --help )
+         echo "Usage: mlab <label> [ -m <mountpoint> ] | mlab -u <mountpoint>"
+         echo "Device will be mounted below /media, if not mountpoint specified will be /media/<label>"
+         ;;
+      -m )
+         shift
+         mpoint="$1"
+         ;;
+      -u )
+         FLAG_U=1
+         ;;
+      * )
+         label="$1"
+         ;;
+      -* )
+         echo "Invalid argument: $1"
+         exit 1
+         ;;
+   esac
+   shift
+done
+if [[ -z "$label" ]]
+then
+   echo "Not label specified"; exit 1
+fi
+device=`blkid -L "$label"`
+if [ -z $device ]
+then 
+   echo "Label not valid"
+   exit 1
+fi
+# MOUNT
+if [[ $FLAG_U == "0" ]]
+then
+   if [[ -z $mpoint ]]
+   then
+      mpoint="$label"
+   fi
+   # workaround
+   if [[ -f "/media/$mpoint/.created_by_pmount" ]]
+   then
+      sudo rm /media/$mpoint/.created_by_pmount 2> /dev/null
+      sudo rmdir /media/$mpoint 2> /dev/null
+   fi
+
+   if [ ! -d "/media/$mpoint" ]
+   then
+      pmount $device "$mpoint" 
+   else
+      echo "Mountpoint $mpoint already exists"
+      exit 2
+   fi
+# UMOUNT
+else
+   pumount $device
+fi
+

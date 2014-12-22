@@ -1,0 +1,13 @@
+#!/bin/bash
+find . -name "*p.jpg" | while read f
+do
+convert "$f" -resize 120x180 "${f}_resized"
+mv "${f}_resized" "$f"
+done
+
+
+find . -name "*sheet.jpg" | while read f
+do
+convert "$f" -quality 40 "${f}_resized"
+mv "${f}_resized" "$f"
+done

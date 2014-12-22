@@ -1,0 +1,217 @@
+#!/bin/bash
+# bck script by jordihv@gmail.com
+#
+# * saves backup of music
+# * converts flac files to mp3
+# * syncs mp3 files to configured devices
+# * saves backup of media renaming required files (see 'check' script)
+#
+#
+config()
+{
+    # global
+    dependencies="flac2mp3 flac metaflac lame check"
+    date_sync='2014-10-06'
+
+    # source data
+    music_src_path="$HOME/Music/"
+    media_src_path="/media/BOOK"
+
+    # backup data
+    media_bck_path="/media/BOOK-BCK"
+    music_bck_path="/media/WD2.5-MEDIA/"
+    music_bck_dest_path="${music_bck_path}/BCK_Música"
+
+    # logs data
+    log_path="$HOME/.log"
+    log_file="$log_path/backup_`date +%s`.log"
+    check_log_file="$media_src_path/.check.log"
+
+    # external files
+    check_bin="$HOME/bin/check"
+    sync_conf_file="$HOME/bin/.sync_all.cnf"
+}
+
+check_deps()
+{
+    deps_ok=1
+    for dep in $dependencies
+    do
+        if ! $(which $dep &>/dev/null); then
+            echo "* ${dep} not found!"
+            deps_ok=0
+        fi
+    done
+
+    if [[ $deps_ok == 0 ]]; then
+        echo "Please install the missing dependencies and try again."
+        exit 1
+    fi
+}
+
+initialization()
+{
+    # load config
+    config
+
+    #check dependencies
+    check_deps
+
+    #save cd
+    current_directory=`pwd`
+
+    # exit if no source exists
+    if [[ ! -d "$music_src_path" || ! -d "$media_src_path" ]]
+    then
+        echo "Please check source in script configuration"
+        exit 1
+    fi
+
+    # create log directory if necessary
+    if [ ! -d "$log_path" ]
+    then
+        mkdir $log_path
+    fi
+
+    usage() { echo "Usage: `basename $0` [-mMsn] m=music; M=media; s=sync; n=simulation" 1>&2; exit 1; }
+
+    F_MUSIC='N'; F_MEDIA='N'; F_SYNC='N';
+    while getopts ":mMsn" o; do
+        case "${o}" in
+            m)
+                F_MUSIC='Y'; ;;
+            M)
+                F_MEDIA='Y'; ;;
+            s)
+                F_SYNC='Y'; ;;
+            n)
+                F_SIM=1; ;;
+            *)
+                usage
+                ;;
+        esac
+    done
+
+    # do all actions if no action is passed
+    if [[ $F_MUSIC != 'Y' && $F_MEDIA != 'Y' && $F_SYNC != 'Y' ]]; then
+        F_MUSIC='Y';
+        F_MEDIA='Y';
+        F_SYNC='Y';
+    fi
+
+    # allow actions only if drives present
+    if [[ $F_MEDIA == 'Y' ]]; then
+        if [[ $(mount_drive $media_src_path) == 0 || $(mount_drive $media_bck_path) == 0 ]]; then
+            F_MEDIA='N'
+        fi
+    fi
+
+    # to sync correctly, previous backup of the music is mandatory
+    if [[ $F_SYNC == 'Y' ]]; then
+            F_MUSIC='Y'
+    fi
+
+    # music backup and sync backup need both to mount $music_bck_path drive
+    if [[ $F_MUSIC == 'Y' ]]; then
+        mounted_music=$(mount_drive $music_bck_path)
+        if [[ $mounted_music == 0 ]]; then
+            F_MUSIC='N'
+            F_SYNC='N'
+        fi
+        # create dest paths on drive if necessary
+        if [ ! -d "$music_bck_dest_path/Música/Discos" ]
+        then
+            mkdir -p "$music_bck_dest_path/Música/Discos"
+        fi
+        if [ ! -d "$music_bck_dest_path/Flac" ]
+        then
+            mkdir "$music_bck_dest_path/Flac"
+        fi
+    fi
+
+    if [[ $F_SIM == 1 ]]; then
+        sim_arg='n'
+        mode='SIMULATION'
+    else
+        mode='EXECUTION'
+    fi
+}
+
+mount_drive()
+{
+    if [ ! "$(ls -A $1)" ]; then
+        mount "$1" 2> /dev/null
+        if [ "$(ls -A $1)" ]; then
+            echo 1
+        else
+            echo 0
+        fi
+    else
+        echo 1
+    fi
+}
+
+log()
+{
+    echo "*** $1 ***" | tee -a $log_file
+}
+
+umount_drives()
+{
+    if [[ $F_MEDIA == 'Y' ]]; then
+        umount $media_src_path 2> /dev/null
+        umount $media_bck_path 2> /dev/null
+    fi
+    if [[ $F_MUSIC == 'Y' || $F_SYNC == 'Y' ]]; then
+        umount $music_bck_path 2> /dev/null
+    fi
+}
+
+initialization $@
+
+log "Media Backup: $F_MEDIA. Music Backup: $F_MUSIC. Sync Devices: $F_SYNC. Mode: $mode ";
+read -p "Press [Enter] key to start backup..."
+
+if [[ $F_MEDIA == 'Y' ]]; then
+    log 'Media Backup'
+    if [ -f $check_log_file ]
+    then
+        cat $check_log_file | $check_bin | tee $log_file
+    fi
+    rsync -rtv${sim_arg} --delete-after --no-inc-recursive --delete-excluded $media_src_path/ $media_bck_path/ | tee -a $log_file
+fi
+
+if [[ $F_MUSIC == 'Y' ]]; then
+    log 'Music Backup'
+    # copies mp3 !! important !! don't put --delete arg, it will destroy all the converted mp3 not existant in origin
+    rsync -rltDvu${sim_arg} --exclude='*.flac' --exclude='*.jpeg' $music_src_path $music_bck_dest_path/Música | tee -a $log_file
+    # copies flac
+    rsync -rltDvu${sim_arg} --delete-before --delete-excluded --include='*/' --include='*.flac' --exclude='*' $music_src_path $music_bck_dest_path/Flac | tee -a $log_file
+    # if not simulation converts flac to mp3
+    if [[ $F_SIM != 1 ]]; then
+        cd $music_src_path/Discos/; flac2mp3 -r -o $music_bck_dest_path/Música/Discos/ -b 320 * | tee -a $log_file
+    fi
+fi
+
+if [ $F_SYNC == 'Y' ] && [ -f $sync_conf_file ]; then
+    log 'Devices Sync'
+    conf_file="`cat $sync_conf_file`\n"
+    while read dest
+    do
+        mnt_path=`echo $dest | cut -d '#' -f1`
+        music_dir=`echo $dest | cut -d '#' -f2`
+        device_exists=$(mount_drive $mnt_path)
+        if [[ $device_exists == 1 ]]; then
+            log "Syncinc ${mnt_path}..."
+            cd "$music_bck_dest_path/Música/Discos"
+            # syncs only from $date_sync
+            find . -newermt "$date_sync" | rsync -Rv${sim_arg} --size-only --files-from=- . "$mnt_path/$music_dir" | tee -a $log_file
+            umount $mnt_path
+        fi
+    done < <(echo -ne "$conf_file")
+fi
+
+# restore current directory
+cd $current_directory
+
+#umount_drives

@@ -1,0 +1,262 @@
+#!/bin/bash
+# pli v1.0 by joh
+#################################################################################
+#  USER DEFINED
+#################################################################################
+# PATHS
+find_film_dirs="$HOME/Vídeos/Cine $HOME/ext -maxdepth 3"
+declare -r find_tv_dirs="$HOME/Vídeos/TV"
+# DISK
+declare -r disk_label="/media/BOOK/" # comment if not needed mounting disk
+# PLAYERS
+declare -r mplayer="mplayer" #config set at ~/.mplayer/config
+declare -r gnomemplayer="gnome-mplayer --verbose -q --keep_on_top --fullscreen"
+declare -r vlc="vlc -f"
+declare -r totem="totem --fullscreen"
+player=$mplayer # default
+# CHECK SCRIPT
+declare -r check_func="$HOME/bin/check" # config at ~/bin/mirror
+#declare -r check_func="$HOME/bin/check -n" # don't replicates changes in mirror
+declare -r checkmark="_X_"
+#################################################################################
+# FILES
+declare -r log_pli="$HOME/.pli/`date +%s`.log"
+declare -r minfo_tmp="/tmp/pliminfo.tmp"
+declare -r out_tmp="/tmp/pliout.tmp"
+declare -r out_tmp2="/tmp/pliout2.tmp"
+# VAR
+mark_filter="-not -regex .*$checkmark.*"
+FLAG_S=0
+FLAG_D=0
+FLAG_DIRSPEC=0
+FLAGALT=0
+FLAG_L=0
+FLAGMOUNT=0
+declare -a f_arr
+declare -a e_arr
+find_dir_spec=""
+
+exit_f() {
+    if [ ! -z $disk_label ]
+    then
+        # umount disk
+        umount $disk_label
+    fi
+
+# remove temporaries
+rm $minfo_tmp $out_tmp $out_tmp2 2> /dev/null
+
+exit "$1"
+}
+
+# function that validates user input
+valid_num() {
+   if [[ $1 -lt $i && $1 -gt 0 ]]
+   then
+      numplay="$1"
+   else
+      echo "Out of range..... exiting"; exit_f 2
+   fi
+}
+
+if [ ! -z $disk_label ]
+then
+    # mount disk
+    mount $disk_label > /dev/null
+fi
+
+# application directory
+mkdir $HOME/.pli 2> /dev/null
+# if user interrupt could have old temporaries
+rm $minfo_tmp $out_tmp $out_tmp2 2> /dev/null
+
+
+# arguments parsing
+while [ ! -z "$1" ]
+do
+   case "$1" in
+      -a )
+         # erase filter used in find (for series and films listing)
+         mark_filter=""
+         ;;
+      -s )
+         FLAG_S=1
+         ;;
+      -l | --long )
+         FLAG_L=1
+         ;;
+      -m )
+         FLAG_S=1
+         mark_filter=""
+         ;;
+      -d )
+         FLAG_D=1
+         shift
+         direct_num="$1"
+         ;;
+      -p )
+         shift
+         case "$1" in
+            gnome-mplayer | "1" )
+               player=$gnomemplayer
+            ;;
+            vlc | "2" )
+               player=$vlc
+               FLAGTERM=1
+            ;;
+            totem | "3" )
+               player=$totem
+               FLAGTERM=1
+            ;;
+            * )
+               # invalid arguments defaults to mplayer (warning)
+               echo "WARNING: Incorrect -p option. Playing with mplayer"
+            ;;
+         esac
+         ;;
+      -h | --help )
+         echo "pli v1.0 by joh"
+         echo "***************"
+         echo "usage: pli [option] ... [directory] ..."
+         echo "OPTIONS:"
+         echo "-a show all marked and unmarked"
+         echo "-s show TV series (and play from first episode unmarked if not set -a)"
+         echo "-m select TV episodes manually (same as -s -a)"
+         echo "-d \"direct selection\", requires a number (plays if possible)"
+         echo "-p alternate player 1:gnome-mplayer 2:vlc 3:totem"
+         echo ""
+         echo "\"pli -a -p gnome-mplayer\"      show all cinema and play with alternate player"
+         echo "\"pli ~/Videos/Cine/HD -d 1\"    play first occurence with directory specification (only applies if not set -s)"
+         exit 0
+         ;;
+      -* )
+         # invalid arguments forces to exit
+         echo "Invalid argument: $1"; exit 1
+      ;;
+      * )
+         if [ -d "$1" ]
+         then
+            # allows to add multiple directories by string concatenation
+            find_dir_spec="$1 $find_dir_spec"
+         else
+            # invalid directory forces to exit
+            echo "Invalid argument: $1"; exit 1
+         fi
+         ;;
+   esac
+   shift
+done
+
+# sets find directories specified by user
+if [[ ! -z "$find_dir_spec" ]]
+then
+   # nothing done if -s flag set (warning)
+   if [[ $FLAG_S == "1" ]]
+   then
+      echo "WARNING: Ignoring specified directory, -s flag set"
+   else
+      find_film_dirs="$find_dir_spec"
+   fi
+fi
+
+# show series
+if [[ $FLAG_S == "1" ]]
+then
+   # shows only TV leaf directories
+   find_cmd="find $find_tv_dirs -follow -type d -links -3"
+   i=1
+   for f in `$find_cmd | sort`
+   do 
+      ns_count=`find "$f"/* $mark_filter | grep -cvE '.srt|.sub|.idx'`
+      # if there are left unseen episodes print name series
+      if [[ $ns_count != "0" ]]
+      then
+         f_arr[$i]="$f"
+         echo "[$i] `basename "$f"`" 
+         (( i++ ))
+      fi
+   done
+# show films
+else
+   find_cmd="find $find_film_dirs -type f $mark_filter"
+   i=1
+   for f in `$find_cmd | grep -vE '.srt|.sub|.idx' | sort `
+   do 
+      bname="`basename "$f"`"
+      seen=0
+      seen="`echo $bname | grep -c '_X_'`"
+      if [ $FLAG_L == "1" ]
+      then
+         mediainfo "$f" > $minfo_tmp
+         if [[ $seen == "0" ]]
+         then
+            echo -e "\033[44;37;5m[$i] $bname" >> $out_tmp
+         else
+            echo -e "\033[41;37;5m[$i] $bname" >> $out_tmp
+         fi
+         cat $minfo_tmp | grep Language | head -n1 | sed 's/^/    > /g' >> $out_tmp
+         cat $minfo_tmp | grep Duration | head -n1 | sed 's/^/    > /g' >> $out_tmp
+         cat $minfo_tmp | grep -E 'File size|Overall|A_DTS|A_AC3' | grep -v Format | sed 's/^/    > /g' >> $out_tmp
+      fi
+      # mantain array of film paths
+      f_arr[$i]="$f"
+      # collect info details to show later with less
+      res="`echo $bname | sed 's/.*\.\(1080p\|720p\|480p\).*/\1/g' | grep -E '1080p|720p|480p'`"
+      year="`echo $bname | sed 's/.*[\.|(]\([0-9]\{4\}\)[\.|\)].*/(\1)/g' | grep -E '[0-9]{4}'`"
+      film="`echo $bname | sed -e 's/\(.*\)[\.|(][0-9]\{4\}[\.|)]\(1080p\|720p\|480p\)\..\{3\}/\1/g' -e 's/_X_//g' -e 's/\(.\{29\}\).*/\1---/g' | sed 's/^_X_//g'`"
+      #film="`echo $bname | sed -e 's/\(_X_\)\{0,1\}\(.*\)[\.|(][0-9]\{4\}[\.|)]\(1080p\|720p\|480p\)\..\{3\}/\2/g' -e 's/\(.\{30\}\).*/\1---/g' | sed 's/^_X_//g'`"
+      echo "$i) `if [[ $seen == "0" ]]; then  echo "_X_${film}_X_"; else echo "_Y_${film}_Y_";fi;` .$year $res " >> $out_tmp2
+      (( i++ ))
+   done
+   if [ $FLAG_L == "1" ]
+   then
+      less -R  $out_tmp
+   fi
+   cat $out_tmp2 | column -t | sed -e 's/\./\ /g' -e 's/-\{3\}/\.\.\./g' -e "s/\(.*\)_X_\(.*\)_X_\(.*\)/\1\o033[1;34m\2\o033[0m\3/" -e "s/\(.*\)_Y_\(.*\)_Y_\(.*\)/\1\o033[1;37;41m\2\o033[0m\3/"
+fi
+
+# request and validate user input or argument -d provided
+if [ "$FLAG_D" == 0 ]
+then
+   read -p "Select item [1-$(( i-1 ))]"
+   valid_num "$REPLY"
+else
+   valid_num "$direct_num"
+fi
+
+# determine series path
+if [[ $FLAG_S == "1" ]] 
+then
+   # manual selection of episode (if set -a flag)
+   if [[ -z $mark_filter ]]
+   then
+      i=1
+      for f in `find ${f_arr[$numplay]}/* 2> /dev/null | grep -vE '.srt|.sub|.idx' | sort` 
+      do
+         echo "[$i] `basename $f`"
+         e_arr[$i]="$f"
+         (( i++ ))
+      done
+      read -p "Select episode [1-$(( i-1 ))]"
+      valid_num "$REPLY"
+      video="${e_arr[$numplay]}" 
+   else
+      # find first episode marked as not seen
+      video="`find ${f_arr[$numplay]}/* $mark_filter 2> /dev/null | grep -vE '.srt|.sub|.idx' | sort | head -n1`"
+   fi
+# determine film path
+else
+   video="${f_arr[$numplay]}"
+fi
+
+# play video
+$player "$video" &> $log_pli 
+
+# use FLAGTERM or EOF to determine if file should be checked as seen
+if [[ $FLAGTERM == 1 || `grep -c 'End of file' $log_pli` == "1" ]]
+then
+   $check_func --force --mark "$checkmark" "$video"
+fi
+
+exit_f 0
+

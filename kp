@@ -1,0 +1,4 @@
+#!/bin/bash
+killall qjackctl.real
+killall qsynth
+sudo killall -9 jackdbus

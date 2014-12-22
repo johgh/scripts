@@ -1,0 +1,17 @@
+#!/bin/bash
+for i in $(lsof | grep -i flash | grep -v '.so' |awk '{printf "%s---%s\n", $2, $4}')
+do 
+   vid=$(echo "/proc/"$(echo $i | awk -F --- '{print $1}')"/fd/"$(echo $i | awk -F --- '{print $2}' | sed 's/[a-z]//g'))
+   mplayer $vid
+   read -n1 -p "Siguiente video [>] Guardar [s] Salir [q]"
+   case $REPLY in
+   '>')
+      ;;
+   's')
+      cp $vid $HOME/vid`date +%s`.flv
+      ;;
+   * | 'q')
+      exit 0
+      ;;
+   esac
+done
