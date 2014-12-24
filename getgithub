@@ -1,0 +1,13 @@
+#!/bin/sh
+REPOSRC=$1
+REPOSRC="https://github.com/$1"
+LOCALREPO=$2
+LOCALREPO=$HOME/$2
+
+if [ ! -d $LOCALREPO ]
+then
+git clone --recursive $REPOSRC $LOCALREPO
+else
+cd $LOCALREPO
+git pull $REPOSRC
+fi
