@@ -21,24 +21,23 @@ check_deps()
 check_deps
 
 # clone conf repo and add symlinks to $HOME
-getgithub johgh/dotfiles conf
+$HOME/bin/getgithub johgh/dotfiles conf
 # git clone https://github.com/johgh/dotfiles $HOME/conf
 cd $HOME
-ln -fs $HOME/bin/.zshrc .
-ln -fs $HOME/bin/.tmux.conf .
-ln -fs $HOME/bin/.vrapperrc .
-ln -fs $HOME/bin/.tmux.conf.layout .
-ln -fs $HOME/bin/conf/.gitconfig .
-cd -
+ln -fs $HOME/conf/.zshrc .
+ln -fs $HOME/conf/.tmux.conf .
+ln -fs $HOME/conf/.vrapperrc .
+ln -fs $HOME/conf/.tmux.conf.layout .
+ln -fs $HOME/conf/.gitconfig .
 
 # clone scripts repo
-getgithub johgh/scripts bin
+$HOME/bin/getgithub johgh/scripts bin
 # git clone https://github.com/johgh/scripts $HOME/bin
 
 # add to path
-getgithub robbyrussell/oh-my-zsh.git .oh-my-zsh
+$HOME/bin/getgithub robbyrussell/oh-my-zsh.git .oh-my-zsh
 # git clone git://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
-chsh -s /bin/zsh
+sudo chsh -s /bin/zsh
 
 if [ ! -z $1 ]
 then
