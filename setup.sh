@@ -13,6 +13,7 @@ check_deps()
     done
 
     if [[ $deps_ok == 0 ]]; then
+        echo "sudo apt-get install $packages_to_install"
         sudo apt-get install $packages_to_install
     fi
 }
@@ -20,28 +21,31 @@ check_deps()
 check_deps
 
 # clone conf repo and add symlinks to $HOME
-git clone https://github.com/johgh/dotfiles $HOME/conf
+$HOME/bin/getgithub johgh/dotfiles conf
+# git clone https://github.com/johgh/dotfiles $HOME/conf
 cd $HOME
-ln -s $HOME/bin/.zshrc .
-ln -s $HOME/bin/.tmux.conf .
-ln -s $HOME/bin/.vrapperrc .
-ln -s $HOME/bin/.tmux.conf.layout .
-ln -s $HOME/bin/conf/.gitconfig .
-cd -
+ln -fs $HOME/conf/.zshrc .
+ln -fs $HOME/conf/.tmux.conf .
+ln -fs $HOME/conf/.vrapperrc .
+ln -fs $HOME/conf/.tmux.conf.layout .
+ln -fs $HOME/conf/.gitconfig .
 
 # clone scripts repo
-git clone https://github.com/johgh/scripts $HOME/bin
-echo "export PATH=$HOME/bin:$PATH" >> ~/.zshrc
+$HOME/bin/getgithub johgh/scripts bin
+# git clone https://github.com/johgh/scripts $HOME/bin
 
 # add to path
-git clone git://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
-chsh -s /bin/zsh
+$HOME/bin/getgithub robbyrussell/oh-my-zsh.git .oh-my-zsh
+# git clone git://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
+sudo chsh -s /bin/zsh
 
 if [ ! -z $1 ]
 then
-    ./vim_setup.sh
+    $HOME/bin/vim_setup.sh $1
 fi
 
 # add guake to startup
 cp /usr/share/applications/guake.desktop ~/.config/autostart/
 
+# warning reload .zshrc
+echo 'load now .zshrc with "source ~/.zshrc"'
