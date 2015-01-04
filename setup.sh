@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dependencies="guake wmctrl tmux zsh build-essential cmake python-dev"
+dependencies="guake wmctrl tmux zsh build-essential cmake python-dev php-codesniffer"
 check_deps()
 {
     deps_ok=1
