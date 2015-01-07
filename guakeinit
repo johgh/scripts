@@ -1,18 +1,17 @@
 #!/bin/bash
 # dependencias: guake, ccze, inotify-tools
-
-killall guake > /dev/null 2>&1
-guake > /dev/null 2>&1 & sleep 2
-# guake tabs
-guake --execute-command="tail -f -n 30 /var/log/phplog"
-# guake --execute-command="tail -f -n 30 /var/log/phplog | ccze -A"
-guake --rename-tab="phplog"
-guake --new-tab=2 --execute-command="mysql"
-guake -t # hacer visible porque si no no renombra pestañas (bug)
-guake -s 1 --rename-tab="mysql->DB"
-guake --new-tab=3
-guake -s 1
-guake -t # volver a ocultar
+#killall guake > /dev/null 2>&1
+#guake > /dev/null 2>&1 & sleep 5
+## guake tabs
+#guake --execute-command="tail -f -n 30 /var/log/php_errors.log | ccze -A"
+#guake --rename-tab="phplog"
+#guake --new-tab=2 --execute-command="mysql"
+#guake -t # hacer visible porque si no no renombra pestañas (bug)
+#guake -s 1 --rename-tab="mysql->DB"
+#guake --new-tab=3 --execute-command="tmux -2"
+#guake -s 1
+#guake -t # volver a ocultar
 
 # abre tab cuando cambia el fichero phplog
-while inotifywait -e close_write /var/log/phplog; do guake -s 0; guake -t; done > /dev/null 2>&1 &
+while inotifywait -e close_write /var/log/php_errors.log; do guake -s 0; guake -t; tmux select-window -t 1; done > /dev/null 2>&1 &
+guake
