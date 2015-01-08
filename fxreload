@@ -1,0 +1,6 @@
+#!/bin/bash
+while inotifywait -e close_write -r $HOME/workspace; do
+    WID=`xdotool search --title "Mozilla Firefox" | head -1`
+    xdotool windowactivate $WID
+    xdotool key F5
+done > /dev/null 2>&1 &
