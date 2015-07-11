@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-if [ -z $1 ]
+if [[ -z $1 ]]
 then
     echo 'Provide message'
     exit 1

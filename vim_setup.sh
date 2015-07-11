@@ -43,7 +43,7 @@ fi
 
 # clean Vim files
 cd ~
-rm -Rf .vim .vimrc .viminfo .vimbackup .vimswap .vimundo .vimviews
+rm -Rf .vim*
 
 # get .vim dir with submodules
 git clone --recursive https://github.com/johgh/vim .vim
