@@ -1,51 +1,38 @@
 #!/bin/bash
+dependencies="guake tmux zsh"
+dotfiles=".zshrc .tmux.conf .tmux.conf.layout .vrapperrc .gitconfig .mysql.cnf"
+autostart="guake"
 
-dependencies="guake wmctrl tmux zsh build-essential cmake python-dev php-codesniffer"
-check_deps()
-{
-    deps_ok=1
-    for dep in $dependencies
-    do
-        if ! $(which $dep &>/dev/null); then
-            packages_to_install=" ${dep}"
-            deps_ok=0
-        fi
-    done
+# external scripts
+CHECK_DEPS=$HOME/bin/check_deps
+GET_GITHUB=$HOME/bin/getgithub
+VIM_SETUP=$HOME/bin/vim_setup.sh
 
-    if [[ $deps_ok == 0 ]]; then
-        echo "sudo apt-get install $packages_to_install"
-        sudo apt-get install $packages_to_install
-    fi
-}
+# clone/update my scripts repo
+git clone johgh/scripts $HOME/bin
 
-check_deps
+$CHECK_DEPS $dependencies
 
-# clone conf repo and add symlinks to $HOME
-$HOME/bin/getgithub johgh/dotfiles conf
-# git clone https://github.com/johgh/dotfiles $HOME/conf
-cd $HOME
-ln -fs $HOME/conf/.zshrc .
-ln -fs $HOME/conf/.tmux.conf .
-ln -fs $HOME/conf/.vrapperrc .
-ln -fs $HOME/conf/.tmux.conf.layout .
-ln -fs $HOME/conf/.gitconfig .
+# clone/update conf repo and add symlinks to $HOME
+$GET_GITHUB johgh/dotfiles conf
 
-# clone scripts repo
-$HOME/bin/getgithub johgh/scripts bin
-# git clone https://github.com/johgh/scripts $HOME/bin
+# symlink dot files to $HOME
+for file in $dotfiles
+do
+    ln -fs $HOME/conf/$file $HOME
+done
 
-# add to path
-$HOME/bin/getgithub robbyrussell/oh-my-zsh.git .oh-my-zsh
-# git clone git://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
+# clone/update oh-my-zsh
+$GET_GITHUB robbyrussell/oh-my-zsh.git .oh-my-zsh
 sudo chsh -s /bin/zsh
 
-if [ ! -z $1 ]
-then
-    $HOME/bin/vim_setup.sh $1
-fi
+# add apps to startup
+for app in $autostart
+do
+    ln -fs /usr/share/applications/${app}.desktop ~/.config/autostart/
+done
 
-# add guake to startup
-cp /usr/share/applications/guake.desktop ~/.config/autostart/
+# install my vim setup
+$VIM_SETUP
 
-# warning reload .zshrc
-echo 'load now .zshrc with "source ~/.zshrc"'
+echo 'Please reload now .zshrc: "source ~/.zshrc"'
