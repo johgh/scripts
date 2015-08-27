@@ -1,0 +1,10 @@
+#!/usr/bin/expect
+set timeout 20
+
+spawn git push
+
+expect "Password for 'https://johgh@github.com':"
+
+send "pass\r";
+
+interact
