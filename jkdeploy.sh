@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-# save current directory
-dir=`pwd`
-
 if [[ -z $1 ]]
 then
     echo 'Provide message'
