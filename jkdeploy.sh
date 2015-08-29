@@ -18,8 +18,7 @@ jekyll build
 cd source
 git add --all ./
 git commit -m "$message (deploy)"
-# executes push and sends pass automatically
-$dir/push
+git push
 
 cd ..
 git add --all ./
