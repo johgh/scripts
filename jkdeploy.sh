@@ -17,10 +17,11 @@ jekyll build
 
 cd source
 git add --all ./
-git commit -m "$message (deploy)"
-git push
+git commit --amend -m "Deploy. See https://github.com/johgh/johgh.io-source for changes"
+git push origin --force
 
 cd ..
 git add --all ./
 git commit -m "$message"
+git pull
 git push
