@@ -9,8 +9,15 @@ fi
 
 message=$1
 
+killall jkwatch > /dev/null 2>&1 &
+
 cd $HOME/johgh.io-source
 jekyll build
+
+git add --all ./
+git commit -m "$message"
+git pull
+git push
 
 cd source
 git add --all ./
@@ -18,7 +25,6 @@ git commit --amend -m "Deploy. See https://github.com/johgh/johgh.io-source for 
 git push origin --force
 
 cd ..
-git add --all ./
-git commit -m "$message"
-git pull
+git add source
+git commit -m "Commited submodule source."
 git push
