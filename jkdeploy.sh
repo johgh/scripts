@@ -12,12 +12,13 @@ message=$1
 killall jkwatch > /dev/null 2>&1 &
 
 cd $HOME/johgh.io-source
-jekyll build
 
 git add --all ./
 git commit -m "$message"
 git pull
 git push
+
+jekyll build
 
 cd source
 git add --all ./
