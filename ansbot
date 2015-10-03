@@ -1,0 +1,28 @@
+#!/usr/bin/expect
+# USE EXAMPLE. Creating an alias for git:
+# git() { if [[ $1 == "push" || $1 == "pull" ]]; then $HOME/bin/ansbot '*?assword*' 'YOUR_PASSWORD_HERE' ''git "$@"''; fi; }
+# to unalias function use: unset -f git
+
+set timeout 20
+
+proc lshift {varname} {      
+    upvar 1 $varname var
+    set var [lassign $var first]
+    return $first
+}
+
+set pattern [lshift argv]
+set pass [lshift argv]
+
+eval spawn {*}$argv
+
+expect {
+  timeout { exit 1 }
+  eof { exit 1 }
+  "$pattern"
+}
+
+send $pass\r;
+
+interact
+
