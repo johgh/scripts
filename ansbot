@@ -1,6 +1,6 @@
 #!/usr/bin/expect
 # USE EXAMPLE. Creating an alias for git:
-# git() { if [[ $1 == "push" || $1 == "pull" ]]; then $HOME/bin/ansbot '*?assword*' 'YOUR_PASSWORD_HERE' ''git "$@"''; fi; }
+# git() { if [[ $1 == "push" || $1 == "pull" ]]; then $HOME/bin/ansbot '*?assword*' 'PASSWORD_HERE' ''/usr/bin/git "$@"''; else /usr/bin/git "$@"; fi;
 # to unalias function use: unset -f git
 
 set timeout 20
