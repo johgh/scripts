@@ -17,12 +17,11 @@ set pass [lshift argv]
 eval spawn {*}$argv
 
 expect {
-  timeout { exit 1 }
-  eof { exit 1 }
+  timeout { return 0 }
+  eof { return 0 }
   "$pattern"
 }
 
 send $pass\r;
 
 interact
-
