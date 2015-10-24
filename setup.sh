@@ -1,6 +1,6 @@
 #!/bin/bash
 dependencies="guake tmux zsh"
-dotfiles=".zshrc .tmux.conf .tmux.conf.layout .vrapperrc .gitconfig .mysql.cnf"
+dotfiles=".zshrc .tmux.conf .tmux.conf.layout .vrapperrc .gitconfig .mysql.cnf .alias_functions"
 autostart="guake"
 
 # external scripts
