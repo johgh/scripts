@@ -1,6 +1,6 @@
 #!/bin/bash
 dependencies="wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag"
-dists="devel lucid maverick natty oneiric precise quantal raring saucy trusty utopic vivid wily"
+dists="devel precise quantal raring saucy trusty utopic vivid wily"
 
 CHECK_DEPS=$HOME/bin/check_deps
 
@@ -34,8 +34,6 @@ then
     sudo apt-get purge vim-*
 
     echo "deb http://ppa.launchpad.net/pi-rho/dev/ubuntu ${array[${option}]} main" | sudo tee -a  /etc/apt/sources.list
-    # ALT REPO
-    # echo "deb http://ppa.launchpad.net/pkg-vim/vim-daily/ubuntu ${array[${option}]} main" | sudo tee -a /etc/apt/sources.list
 
     # update and install gvim
     sudo apt-get update && sudo apt-get install vim vim-gnome
@@ -45,9 +43,14 @@ fi
 cd ~
 rm -Rf .vim*
 
-# get .vim dir with submodules
+# get .vim dir and install plugins
 git clone --recursive https://github.com/johgh/vim .vim
-$HOME/.vim/bundle/YouCompleteMe/install.sh
+vim -E -u NONE -S ~/.vim/bundles.vim +PluginInstall +qall
+
+if [ -f $HOME/.vim/bundle/YouCompleteMe/install.sh ]
+then
+    $HOME/.vim/bundle/YouCompleteMe/install.sh
+fi
 
 if [ ! -d $HOME/fonts ]
 then
