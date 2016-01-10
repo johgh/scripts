@@ -36,7 +36,8 @@ then
     echo "deb http://ppa.launchpad.net/pi-rho/dev/ubuntu ${array[${option}]} main" | sudo tee -a  /etc/apt/sources.list
 
     # update and install gvim
-    sudo apt-get update && sudo apt-get install vim vim-gnome
+    sudo apt-get update
+    sudo apt-get install vim vim-gnome
 fi
 
 # clean Vim files
@@ -67,4 +68,4 @@ $phpCodeSnifferConfig = array (
 echo "$content" | sudo tee /etc/php-codesniffer/CodeSniffer.conf > /dev/null
 
 # symlink .vimrc to $HOME
-ln -fs $HOME/.vim/.vimrc .
+ln -fs $HOME/.vim/vimrc $HOME/.vimrc
