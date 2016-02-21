@@ -53,11 +53,11 @@ then
     $HOME/.vim/bundle/YouCompleteMe/install.sh
 fi
 
-if [ ! -d $HOME/fonts ]
-then
-    git clone https://github.com/powerline/fonts
-    $HOME/fonts/install
-fi
+# if [ ! -d $HOME/fonts ]
+# then
+#     git clone https://github.com/powerline/fonts
+#     $HOME/fonts/install
+# fi
 
 # configuring PSR (codesniffer)
 content="<?php

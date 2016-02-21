@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+# see "help set"
 
 if [[ -z $1 ]]
 then
