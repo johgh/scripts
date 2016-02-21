@@ -9,7 +9,7 @@ GET_GITHUB=$HOME/bin/getgithub
 VIM_SETUP=$HOME/bin/vim_setup.sh
 
 # clone/update my scripts repo
-git clone johgh/scripts $HOME/bin
+git clone https://github.com/johgh/scripts.git $HOME/bin
 
 $CHECK_DEPS $dependencies
 
