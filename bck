@@ -178,7 +178,7 @@ if [[ $F_MEDIA == 'Y' ]]; then
     then
         cat $check_log_file | $check_bin | tee $log_file
     fi
-    rsync -rtv${sim_arg} --delete-after --no-inc-recursive --delete-excluded $media_src_path/ $media_bck_path/ | tee -a $log_file
+    rsync -rtv${sim_arg} --exclude 'Downloads' --exclude 'Torrents' --delete-after --no-inc-recursive --delete-excluded $media_src_path/ $media_bck_path/ | tee -a $log_file
 fi
 
 if [[ $F_MUSIC == 'Y' ]]; then
