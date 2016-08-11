@@ -59,6 +59,10 @@ fi
 #     $HOME/fonts/install
 # fi
 
+mv $HOME/.fonts $HOME/.fonts_bck
+ln -s $HOME/.vim/fonts $HOME/.fonts
+fc-cache -f $HOME/.fonts
+
 # configuring PSR (codesniffer)
 content="<?php
 $phpCodeSnifferConfig = array (
