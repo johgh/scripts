@@ -59,9 +59,8 @@ fi
 #     $HOME/fonts/install
 # fi
 
-mv $HOME/.fonts $HOME/.fonts_bck
-ln -s $HOME/.vim/fonts $HOME/.fonts
-fc-cache -f $HOME/.fonts
+cp -R $HOME/.vim/fonts/* $HOME/.local/share/fonts
+fc-cache -f $HOME/.local/share/fonts
 
 # configuring PSR (codesniffer)
 content="<?php
