@@ -1,8 +1,8 @@
 #!/bin/bash
-dependencies=$1
+dependencies="$1"
 showerror=0
 
-if [ -z $1 ]
+if [ -z "$1" ]
 then
     echo "No dependencies specified"
     exit 1
@@ -14,11 +14,12 @@ then
 fi
 
 deps_ok=1
+packages_to_install=""
 for dep in $dependencies
 do
     if ! $(which $dep &>/dev/null); then
         echo "* ${dep} not found!"
-        packages_to_install=" ${dep}"
+        packages_to_install=$packages_to_install" ${dep}"
         deps_ok=0
     fi
 done
@@ -29,7 +30,7 @@ if [[ $deps_ok == 0 ]]; then
         echo "Please install the missing dependencies and try again."
         exit 1
     else
-        echo "sudo apt-get install $packages_to_install"
-        sudo apt-get install $packages_to_install
+        echo "sudo apt install $packages_to_install"
+        sudo apt install $packages_to_install
     fi
 fi

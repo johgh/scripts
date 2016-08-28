@@ -1,10 +1,10 @@
 #!/bin/bash
-dependencies="wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag"
-dists="devel precise quantal raring saucy trusty utopic vivid wily"
+dependencies="exuberant-ctags wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag"
+dists="trusty utopic vivid wily xenial yakkety"
 
 CHECK_DEPS=$HOME/bin/check_deps
 
-$CHECK_DEPS $dependencies
+$CHECK_DEPS "$dependencies"
 
 if [[ -f ~/.vimrc || -d ~/.vim ]]
 then
@@ -28,16 +28,16 @@ done
 
 read -s -n 1 -p $'Select your distro for installing Vim:\n' option
 
-if [[ $option != 0 ]]
+if [[ $option != 0  && $option != '' ]]
 then
     # purge current Vim version (if any)
-    sudo apt-get purge vim-*
+    sudo apt purge vim-*
 
     echo "deb http://ppa.launchpad.net/pi-rho/dev/ubuntu ${array[${option}]} main" | sudo tee -a  /etc/apt/sources.list
 
     # update and install gvim
-    sudo apt-get update
-    sudo apt-get install vim vim-gnome
+    sudo apt update
+    sudo apt install vim vim-gnome
 fi
 
 # clean Vim files

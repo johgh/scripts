@@ -1,6 +1,6 @@
 #!/bin/bash
-dependencies="guake tmux zsh"
-dotfiles=".zshrc .tmux.conf .tmux.conf.layout .vrapperrc .gitconfig .mysql.cnf .alias_functions"
+dependencies="guake tmux zsh expect"
+dotfiles=".zshrc .tmux.conf .tmux.conf.layout .vrapperrc .gitconfig .my.cnf .alias_functions"
 autostart="guake"
 
 # external scripts
@@ -9,9 +9,13 @@ GET_GITHUB=$HOME/bin/getgithub
 VIM_SETUP=$HOME/bin/vim_setup.sh
 
 # clone/update my scripts repo
-git clone https://github.com/johgh/scripts.git $HOME/bin
+sudo apt install git
+if [ ! -d $HOME/bin ]
+then
+    git clone https://github.com/johgh/scripts.git $HOME/bin
+fi
 
-$CHECK_DEPS $dependencies
+$CHECK_DEPS "$dependencies"
 
 # clone/update conf repo and add symlinks to $HOME
 $GET_GITHUB johgh/dotfiles conf
@@ -27,6 +31,7 @@ $GET_GITHUB robbyrussell/oh-my-zsh.git .oh-my-zsh
 sudo chsh -s /bin/zsh
 
 # add apps to startup
+mkdir ~/.config/autostart 2> /dev/null
 for app in $autostart
 do
     ln -fs /usr/share/applications/${app}.desktop ~/.config/autostart/
