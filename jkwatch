@@ -1,2 +1,2 @@
 #!/bin/bash
-while inotifywait -r --exclude ~/johgh.io-source/source -e close_write ~/johgh.io-source; do jkrestart.sh; done >/dev/null 2>&1 &
+while inotifywait -r --exclude ~/johgh.io-source/source -e close_write ~/johgh.io-source; do cd ~/johgh.io-source; vagrant ssh -c '/vagrant/shell/jkrestart.sh'; done
