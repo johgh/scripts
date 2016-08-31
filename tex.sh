@@ -1,4 +1,8 @@
 #!/bin/bash
+if ! $(which pdflatex &>/dev/null); then
+    sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra
+fi
+
 filename=`basename -s .md $1`
 dirname=`dirname $1`
 
