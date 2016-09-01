@@ -25,6 +25,6 @@ pdflatex "$filename".tex
 xdg-open "$filename".pdf
 read
 
-/usr/bin/git add *.md *.pdf
-/usr/bin/git commit -m "'BB update: `date`'"
-$HOME/bin/ansbot '*?assword*' $GIT_PASS ''/usr/bin/git p''
+git add *.md *.pdf
+git commit -m "'BB update: `date`'"
+git p
