@@ -2,6 +2,9 @@
 set -e
 # see "help set"
 
+# get git pass
+. $HOME/conf/.alias_functions
+
 if [[ -z $1 ]]
 then
     echo 'Provide message'
@@ -14,19 +17,19 @@ message=$1
 
 cd $HOME/johgh.io-source
 
-git add --all ./
-git commit -m "$message"
-git pull
-git push
+/usr/bin/git add --all ./
+/usr/bin/git commit -m "$message"
+/usr/bin/git pull
+$HOME/bin/ansbot '*?assword*' $GIT_PASS ''/usr/bin/git p''
 
 # jekyll build
 
 cd source
-git add --all ./
-git commit --amend -m "Deploy. See https://github.com/johgh/johgh.io-source for changes"
-git push origin --force
+/usr/bin/git add --all ./
+/usr/bin/git commit --amend -m "Deploy. See https://github.com/johgh/johgh.io-source for changes"
+$HOME/bin/ansbot '*?assword*' $GIT_PASS ''/usr/bin/git p origin --force''
 
 cd ..
-git add source
-git commit -m "Commited submodule source."
-git push
+/usr/bin/git add source
+/usr/bin/git commit -m "Commited submodule source."
+$HOME/bin/ansbot '*?assword*' $GIT_PASS ''/usr/bin/git p''
