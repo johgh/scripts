@@ -18,13 +18,21 @@ sed -i 's/{scrartcl}/[a5paper]{scrbook}/g' "$filename".tex
 sed -i 's/section/chapter/g' "$filename".tex
 # se cambia regla horizontal por asteriscos
 sed -i 's/\\rule{3in}{0.4pt}/* * */g' "$filename".tex
+# puntos suspensivos sin espacios
+sed -i 's/\\ldots{}/.../g' "$filename".tex
+# guiones más largos, es temporal, al terminar e escribir .md, se hará un reemplazar de guión por 3 guiones excepto en guiones estándar
+sed -i 's/-/---/g' "$filename".tex
+# espacio vertical
+sed -i 's/> > >/\\bigskip/g' "$filename".tex
 
+# ejemplo para cambiar varias lineas con \n
+# sed -i 's/usepackage{hyperref}/usepackage{hyperref}\n\\usepackage{amsmath}/g' "$filename".tex
 
-pdflatex "$filename".tex
+pdflatex -output-format dvi "$filename".tex
 
-xdg-open "$filename".pdf
+xdg-open "$filename".dvi
 read
 
-git add *.md *.pdf
+git add *.md *.dvi
 git commit -m "'BB update: `date`'"
 git p
