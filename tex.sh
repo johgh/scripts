@@ -33,6 +33,6 @@ pdflatex -output-format dvi "$filename".tex
 xdg-open "$filename".dvi
 read
 
-git add *.md *.dvi
+git add *.md
 git commit -m "'BB update: `date`'"
 git p
