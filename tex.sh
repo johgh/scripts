@@ -31,11 +31,16 @@ sed -i 's/> > >/\\bigskip/g' "$filename".tex
 # ejemplo para cambiar varias lineas con \n
 # sed -i 's/usepackage{hyperref}/usepackage{hyperref}\n\\usepackage{amsmath}/g' "$filename".tex
 
-pdflatex -output-format dvi "$filename".tex
-dvips "$filename".dvi
-psbook -s4 "$filename".ps | psnup -s1 -2 > "$filename"_readytoprint.ps
+pdflatex "$filename".tex
 
-xdg-open "$filename".dvi
+# get ready to print format
+# pdflatex -output-format dvi "$filename".tex
+# dvips "$filename".dvi
+# psbook -s4 "$filename".ps | psnup -p a4 -s1 -2 > "$filename"_readytoprint.ps
+# xdg-open "$filename"_readytoprint.ps
+# exit
+
+xdg-open "$filename".pdf
 read
 
 git add *.md header.tex footer.tex
