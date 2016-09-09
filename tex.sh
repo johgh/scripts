@@ -2,7 +2,7 @@
 . $HOME/conf/.alias_functions
 
 if ! $(which pdflatex &>/dev/null); then
-    sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra
+    sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra psutils
 fi
 
 filename=`basename -s .md $1`
@@ -32,6 +32,8 @@ sed -i 's/> > >/\\bigskip/g' "$filename".tex
 # sed -i 's/usepackage{hyperref}/usepackage{hyperref}\n\\usepackage{amsmath}/g' "$filename".tex
 
 pdflatex -output-format dvi "$filename".tex
+dvips "$filename".dvi
+psbook -s4 "$filename".ps | psnup -s1 -2 > "$filename"_readytoprint.ps
 
 xdg-open "$filename".dvi
 read
