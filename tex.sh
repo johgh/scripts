@@ -1,5 +1,4 @@
 #!/bin/bash
-# get git pass
 . $HOME/conf/.alias_functions
 
 if ! $(which pdflatex &>/dev/null); then
@@ -12,8 +11,12 @@ dirname=`dirname $1`
 cd "$dirname"
 
 kramdown -o latex --template document "$filename".md > "$filename".tex
+sed -n '/\\begin{document}/,/\\end{document}/P' "$filename".tex | head -n-1 | tail -n+2 > body.tex
+cat header.tex body.tex footer.tex > "$filename".tex
+
 # especificamos formato Koma-Script Book y formato de página A5
-sed -i 's/{scrartcl}/[a5paper]{scrbook}/g' "$filename".tex
+# sed -i 's/{scrartcl}/[a5paper]{scrbook}/g' "$filename".tex
+
 # Convertimos secciones en capítulos para que funcione la importación desde markdown
 sed -i 's/section/chapter/g' "$filename".tex
 # se cambia regla horizontal por asteriscos
@@ -33,6 +36,6 @@ pdflatex -output-format dvi "$filename".tex
 xdg-open "$filename".dvi
 read
 
-git add *.md
+git add *.md header.tex footer.tex
 git commit -m "'BB update: `date`'"
 git p
