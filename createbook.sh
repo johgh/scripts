@@ -1,6 +1,7 @@
 #!/bin/bash
-usage() { echo "$(basename $0) [-f <a4|a5>] [-m <book>|<article>] [-b] [-i <header|footer|body>] <filename>.md
-NOTA: switch -b genera fichero .ps con 2 páginas por A4 en formato folleto" 1>&2; exit 1; }
+usage() { echo "$(basename $0) [-f <a4|a5>] [-m <book|article>] [-b <book|dual>] [-i <header|footer|body>] <filename>.md
+NOTA: switch -b dual: pone 2 páginas por A4 con ordenación estándar
+             -b book: pone 2 páginas por A4 en formato folleto" 1>&2; exit 1; }
 
 dependencies() {
     if ! $(which pdflatex &>/dev/null); then
@@ -14,6 +15,7 @@ dependencies() {
 
 # parámetros por defecto
 f=a5
+b=default
 m=default
 included_args=()
 included=()
@@ -21,7 +23,7 @@ included+=('header')
 included+=('footer')
 included+=('body')
 
-while getopts ":f:i:bm:" o; do
+while getopts ":f:i:b:m:" o; do
 case "${o}" in
     f)
         f=${OPTARG}
@@ -32,7 +34,8 @@ case "${o}" in
         if [[ "$m" != 'book' && "$m" != 'article' ]]; then usage; fi
         ;;
     b)
-        b=true
+        b=${OPTARG}
+        if [[ "$b" != 'book' && "$b" != 'dual' ]]; then usage; fi
         ;;
     i)
         i=${OPTARG}
@@ -48,11 +51,6 @@ done
 # si se han especificado por parametro partes a incluir sobreescrimos las de por defecto
 if [ ! -z $included_args ]; then
     included=(${included_args[*]})
-fi
-
-# si se especifica la opción "libro" el formato siempre es A5
-if [[ "$b" == true ]]; then
-    f=a5
 fi
 
 # comprobamos que el fichero pasado por parámetro exista
@@ -136,21 +134,27 @@ if [[ "$m" == 'book' ]]; then
 fi
 
 ##### CONVERSIÓN A FICHERO FINAL #####
-if [[ "$b" != true ]]; then
+if [[ "$b" == 'default' ]]; then
     # se compila 2 veces para obtener TOC actualizada
     pdflatex -draftmode "$filename".tex
     pdflatex "$filename".tex
-    xdg-open "$filename".pdf
+    evince "$filename".pdf
 else
     # se compila 2 veces para obtener TOC actualizada
     pdflatex -draftmode -output-format dvi "$filename".tex
     pdflatex -draftmode -output-format dvi "$filename".tex
     dvips "$filename".dvi
-    psbook -s4 "$filename".ps | psnup -p a4 -s1 -2 > "$filename"_readytoprint.ps
-    xdg-open "$filename"_readytoprint.ps
+    mv "$filename".ps "$filename"_temp.ps
+    if [[ "$f" == 'a5' ]]; then resize=' -p a4 -s1 '; else resize=' -p a4 '; fi
+    if [[ "$b" == 'dual' ]]; then
+        cat "$filename"_temp.ps | psnup $resize -2 > "$filename".ps
+    else
+        psbook -s4 "$filename"_temp.ps | psnup $resize -2 > "$filename".ps
+    fi
+    okular "$filename".ps
 fi
 # limpieza
-# rm *.toc *.dvi *.aux *.out *.log "$filename".tex "$filename".ps body.tex 2> /dev/null
+rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps "$filename".tex body.tex 2> /dev/null
 
 ##### SUBIDA DE FICHEROS FUENTE TRAS PREVISUALIZACIÓN #####
 read
