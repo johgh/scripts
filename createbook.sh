@@ -1,5 +1,5 @@
 #!/bin/bash
-usage() { echo "$(basename $0) [-f <a4|a5>] [-b] [-i <header|footer|body>] <filename>.md
+usage() { echo "$(basename $0) [-f <a4|a5>] [-m <book>|<article>] [-b] [-i <header|footer|body>] <filename>.md
 NOTA: switch -b genera fichero .ps con 2 páginas por A4 en formato folleto" 1>&2; exit 1; }
 
 dependencies() {
@@ -14,17 +14,22 @@ dependencies() {
 
 # parámetros por defecto
 f=a5
+m=default
 included_args=()
 included=()
 included+=('header')
 included+=('footer')
 included+=('body')
 
-while getopts ":f:i:b" o; do
+while getopts ":f:i:bm:" o; do
 case "${o}" in
     f)
         f=${OPTARG}
         if [[ "$f" != 'a4' && "$f" != 'a5' ]]; then usage; fi
+        ;;
+    m)
+        m=${OPTARG}
+        if [[ "$m" != 'book' && "$m" != 'article' ]]; then usage; fi
         ;;
     b)
         b=true
@@ -62,6 +67,9 @@ dependencies
 filename=`basename -s .md $@`
 dirname=`dirname $@`
 
+# echo $filename
+# exit
+
 cd "$dirname"
 
 ##### CONVERSIÓN DE KRAMDOWN A LATEX #####
@@ -88,18 +96,43 @@ if [[ " ${included[@]} " =~ " footer " ]]; then cat footer.tex >> "$filename".te
 echo '\end{document}' >> "$filename".tex
 
 ##### FORMATO A4/A5 SEGÚN PARÁMETROS #####
-if [[ "$f" == 'a4' ]]; then
-    # formato A4 scrartcl
-    sed -i 's/\[a5paper\]{scrbook}/{scrartcl}/g' "$filename".tex
-    # borramos las partes, para ahorrar espacio
-    sed -i 's/\\section{\([^}]*\)}.*$//g' "$filename".tex
-    # subsecciones, no capítulos
-    sed -i 's/\\subsection{\([^}]*\)}.*$/\\subsection*{\1}\n\\addcontentsline{toc}{subsection}{\1}/g' "$filename".tex
-else
+bookstructure() {
     # formato a5, si soporta capítulos a diferencia de scrartcl
     sed -i 's/\\subsection{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
     # cambiamos section por parte
     sed -i 's/\\section{\([^}]*\)}.*$/\\part*{\1}\n\\addcontentsline{toc}{part}{\1}/g' "$filename".tex
+}
+
+articlestructure() {
+    # borramos las partes, para ahorrar espacio
+    sed -i 's/\\section{\([^}]*\)}.*$//g' "$filename".tex
+    # subsecciones, no capítulos
+    sed -i 's/\\subsection{\([^}]*\)}.*$/\\subsection*{\1}\n\\addcontentsline{toc}{subsection}{\1}/g' "$filename".tex
+}
+
+if [[ "$m" == 'default' ]]; then
+    if [[ "$f" == 'a4' ]]; then
+        mode=scrartcl
+        # formato A4 scrartcl
+        sed -i 's/\\documentclass.*$/\\documentclass[a4paper]{scrartcl}/g' "$filename".tex
+        articlestructure
+    else
+        mode=scrbook
+        # formato A5 scrbook
+        sed -i 's/\\documentclass.*$/\\documentclass[a5paper]{scrbook}/g' "$filename".tex
+        bookstructure
+    fi
+fi
+
+##### FORMATO ARTÍCULO/LIBRO SEGÚN PARÁMETROS #####
+if [[ "$m" == 'article' ]]; then
+    sed -i 's/\\documentclass.*$/\\documentclass['"$f"'paper]{scrartcl}/g' "$filename".tex
+    articlestructure
+fi
+
+if [[ "$m" == 'book' ]]; then
+    sed -i 's/\\documentclass.*$/\\documentclass['"$f"'paper]{scrbook}/g' "$filename".tex
+    bookstructure
 fi
 
 ##### CONVERSIÓN A FICHERO FINAL #####
@@ -117,7 +150,7 @@ else
     xdg-open "$filename"_readytoprint.ps
 fi
 # limpieza
-rm *.toc *.dvi *.aux *.out *.log "$filename".tex "$filename".ps body.tex 2> /dev/null
+# rm *.toc *.dvi *.aux *.out *.log "$filename".tex "$filename".ps body.tex 2> /dev/null
 
 ##### SUBIDA DE FICHEROS FUENTE TRAS PREVISUALIZACIÓN #####
 read
