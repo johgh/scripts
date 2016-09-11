@@ -1,16 +1,66 @@
 #!/bin/bash
-. $HOME/conf/.alias_functions
+usage() { echo "$(basename $0) [-f <a4|a5>] [-b] [-i <header|footer|body>] <filename>.md
+NOTA: switch -b genera fichero .ps con 2 páginas por A4 en formato folleto" 1>&2; exit 1; }
 
-if ! $(which pdflatex &>/dev/null); then
-    sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra psutils
+dependencies() {
+    if ! $(which pdflatex &>/dev/null); then
+        sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra psutils
+    fi
+
+    if ! $(which psbook &>/dev/null); then
+        sudo apt-get install psutils
+    fi
+}
+
+# parámetros por defecto
+f=a5
+included_args=()
+included=()
+included+=('header')
+included+=('footer')
+included+=('body')
+
+while getopts ":f:i:b" o; do
+case "${o}" in
+    f)
+        f=${OPTARG}
+        if [[ "$f" != 'a4' && "$f" != 'a5' ]]; then usage; fi
+        ;;
+    b)
+        b=true
+        ;;
+    i)
+        i=${OPTARG}
+        if [[ "$i" != 'header' && "$i" != 'footer' && "$i" != 'body' ]]; then usage; fi
+        included_args+=($i)
+        ;;
+    *)
+        usage
+        ;;
+esac
+done
+
+# si se han especificado por parametro partes a incluir sobreescrimos las de por defecto
+if [ ! -z $included_args ]; then
+    included=(${included_args[*]})
 fi
 
-if ! $(which psbook &>/dev/null); then
-    sudo apt-get install psutils
+# si se especifica la opción "libro" el formato siempre es A5
+if [[ "$b" == true ]]; then
+    f=a5
 fi
 
-filename=`basename -s .md $1`
-dirname=`dirname $1`
+# comprobamos que el fichero pasado por parámetro exista
+shift $(( OPTIND - 1 ))
+if [[ ! -f $@ || -z $@ ]]; then
+    usage
+fi
+
+# comprobación de dependencias
+dependencies
+
+filename=`basename -s .md $@`
+dirname=`dirname $@`
 
 cd "$dirname"
 
@@ -27,46 +77,51 @@ sed -i 's/\\ldots{}/.../g' "$filename".tex
 sed -i 's/-/---/g' "$filename".tex
 # espacio vertical
 sed -i 's/> > >/\\bigskip/g' "$filename".tex
-# cambiamos section por parte
-sed -i 's/\\section{\([^}]*\)}.*$/\\part*{\1}\n\\addcontentsline{toc}{part}{\1}/g' "$filename".tex
-# cambios según formato final que se quiere obtener
-if [[ ! -z $2 ]]; then
-    if [[ $2 == '--a4' ]]; then
-        # formato A4 limpio, sin cabecera ni pie
-        sed -i 's/{scrartcl}/[a4paper]{scrartcl}/g' "$filename".tex
-    else
-        if [[ $2 == '--print' ]]; then
-            # formato listo para imprimir
-            sed -i 's/\\subsection{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
-            sed -n '/\\begin{document}/,/\\end{document}/P' "$filename".tex | head -n-1 | tail -n+2 > body.tex
-            cat header.tex body.tex footer.tex > "$filename".tex
-        fi
-    fi
+
+##### INCLUIMOS PARTES SELECCIONADAS SEGÚN PARÁMETROS #####
+sed -n '/\\begin{document}/,/\\end{document}/P' "$filename".tex | head -n-1 | tail -n+2 > body.tex
+
+cat header.tex > "$filename".tex
+if [[ " ${included[@]} " =~ " header " ]]; then cat intro.tex >> "$filename".tex; fi
+if [[ " ${included[@]} " =~ " body " ]]; then cat body.tex >> "$filename".tex; fi
+if [[ " ${included[@]} " =~ " footer " ]]; then cat footer.tex >> "$filename".tex; fi
+echo '\end{document}' >> "$filename".tex
+
+##### FORMATO A4/A5 SEGÚN PARÁMETROS #####
+if [[ "$f" == 'a4' ]]; then
+    # formato A4 scrartcl
+    sed -i 's/\[a5paper\]{scrbook}/{scrartcl}/g' "$filename".tex
+    # borramos las partes, para ahorrar espacio
+    sed -i 's/\\section{\([^}]*\)}.*$//g' "$filename".tex
+    # subsecciones, no capítulos
+    sed -i 's/\\subsection{\([^}]*\)}.*$/\\subsection*{\1}\n\\addcontentsline{toc}{subsection}{\1}/g' "$filename".tex
 else
-    # formato A5 limpio, sin cabecera ni pie
+    # formato a5, si soporta capítulos a diferencia de scrartcl
     sed -i 's/\\subsection{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
-    sed -i 's/{scrartcl}/[a5paper]{scrbook}/g' "$filename".tex
+    # cambiamos section por parte
+    sed -i 's/\\section{\([^}]*\)}.*$/\\part*{\1}\n\\addcontentsline{toc}{part}{\1}/g' "$filename".tex
 fi
 
-
 ##### CONVERSIÓN A FICHERO FINAL #####
-if [[ -z $2 || $2 == '--a4' ]]; then
-    # formato pdf
+if [[ "$b" != true ]]; then
+    # se compila 2 veces para obtener TOC actualizada
+    pdflatex -draftmode "$filename".tex
     pdflatex "$filename".tex
     xdg-open "$filename".pdf
 else
-    # formato ps para imprimir 2 páginas A5 en cada A4 en formato folleto (psbook -s4)
-    pdflatex -output-format dvi "$filename".tex
+    # se compila 2 veces para obtener TOC actualizada
+    pdflatex -draftmode -output-format dvi "$filename".tex
+    pdflatex -draftmode -output-format dvi "$filename".tex
     dvips "$filename".dvi
     psbook -s4 "$filename".ps | psnup -p a4 -s1 -2 > "$filename"_readytoprint.ps
     xdg-open "$filename"_readytoprint.ps
 fi
 # limpieza
-rm *.dvi *.aux *.out *.log "$filename".tex "$filename".ps body.tex
-# mirar porque .toc lo pilla la segunda vez, no lo puedo borrar...
+rm *.toc *.dvi *.aux *.out *.log "$filename".tex "$filename".ps body.tex 2> /dev/null
 
-##### SUBIDA DE FICHEROS FUENTE TRAS PREVISUALIZACIÓN (SUBIDA ENCRIPTADA) #####
+##### SUBIDA DE FICHEROS FUENTE TRAS PREVISUALIZACIÓN #####
 read
-git add *.md header.tex footer.tex
+. $HOME/conf/.alias_functions
+git add *.md header.tex intro.tex footer.tex
 git commit -m "'BB update: `date`'"
 git p
