@@ -27,13 +27,8 @@ sed -i 's/\\ldots{}/.../g' "$filename".tex
 sed -i 's/-/---/g' "$filename".tex
 # espacio vertical
 sed -i 's/> > >/\\bigskip/g' "$filename".tex
-# cambiamos subsection por parte
-# sed -i 's/\\subsection.*$/\\part{}\n\\addcontentsline{toc}{part}{}/g' "$filename".tex
-sed -i 's/\\subsection{\([^}]*\)}.*$/\\part*{\1}\n\\addcontentsline{toc}{part}{\1}/g' "$filename".tex
-
-
-# \chapter*{Foreword}\n\addcontentsline{toc}{chapter}{Foreword}
-
+# cambiamos section por parte
+sed -i 's/\\section{\([^}]*\)}.*$/\\part*{\1}\n\\addcontentsline{toc}{part}{\1}/g' "$filename".tex
 # cambios según formato final que se quiere obtener
 if [[ ! -z $2 ]]; then
     if [[ $2 == '--a4' ]]; then
@@ -42,16 +37,14 @@ if [[ ! -z $2 ]]; then
     else
         if [[ $2 == '--print' ]]; then
             # formato listo para imprimir
-            # sed -i 's/\\section/\\chapter*/g' "$filename".tex
-            sed -i 's/\\section{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
+            sed -i 's/\\subsection{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
             sed -n '/\\begin{document}/,/\\end{document}/P' "$filename".tex | head -n-1 | tail -n+2 > body.tex
             cat header.tex body.tex footer.tex > "$filename".tex
         fi
     fi
 else
     # formato A5 limpio, sin cabecera ni pie
-    # sed -i 's/\\section/\\chapter*/g' "$filename".tex
-    sed -i 's/\\section{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
+    sed -i 's/\\subsection{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
     sed -i 's/{scrartcl}/[a5paper]{scrbook}/g' "$filename".tex
 fi
 
@@ -68,7 +61,9 @@ else
     psbook -s4 "$filename".ps | psnup -p a4 -s1 -2 > "$filename"_readytoprint.ps
     xdg-open "$filename"_readytoprint.ps
 fi
-
+# limpieza
+rm *.dvi *.aux *.out *.log "$filename".tex "$filename".ps body.tex
+# mirar porque .toc lo pilla la segunda vez, no lo puedo borrar...
 
 ##### SUBIDA DE FICHEROS FUENTE TRAS PREVISUALIZACIÓN (SUBIDA ENCRIPTADA) #####
 read
