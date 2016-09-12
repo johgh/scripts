@@ -165,9 +165,3 @@ fi
 # limpieza
 rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps "$filename".tex body.tex 2> /dev/null
 
-##### SUBIDA DE FICHEROS FUENTE TRAS PREVISUALIZACIÓN #####
-read
-. $HOME/conf/.alias_functions
-git add *.md header.tex intro.tex footer.tex
-git commit -m "'BB update: `date`'"
-git p
