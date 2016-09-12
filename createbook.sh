@@ -1,7 +1,17 @@
 #!/bin/bash
-usage() { echo "$(basename $0) [-f <a4|a5>] [-m <book|article>] [-b <book|dual>] [-i <header|footer|body>] <filename>.md
-NOTA: switch -b dual: pone 2 páginas por A4 con ordenación estándar
-             -b book: pone 2 páginas por A4 en formato folleto" 1>&2; exit 1; }
+usage() { echo "$(basename $0) [-f <a4|a5>] [-m <pagebreaks|cont>] [-j <book|dual>] [-i <header|footer|body>] <filename>.md
+opciones:
+    FORMATO
+        -f a5 (modo por defecto): Formato de página A5 (el modo por defecto, -m, es 'pagebreak')
+        -f a4: Formato de página A4 (el modo por defecto, -m, es 'cont')
+    MODO
+        -m cont[inuous]: todo el texto contínuo, sin saltos de página
+        -m pagebreaks: partes y capítulos con saltos de página (estilo libro)
+    JUNTAR
+        -j dual: junta 2 páginas en cada A4 con ordenación estándar
+        -j book: pone 2 páginas en cada A4 en formato folleto
+    INCLUIR
+        -i especifica que partes se incluyen en el documento (se pueden escoger varias especificando varias veces el parámetro)" 1>&2; exit 1; }
 
 dependencies() {
     if ! $(which pdflatex &>/dev/null); then
@@ -15,7 +25,7 @@ dependencies() {
 
 # parámetros por defecto
 f=a5
-b=default
+j=default
 m=default
 included_args=()
 included=()
@@ -23,7 +33,7 @@ included+=('header')
 included+=('footer')
 included+=('body')
 
-while getopts ":f:i:b:m:" o; do
+while getopts ":f:i:j:m:" o; do
 case "${o}" in
     f)
         f=${OPTARG}
@@ -31,11 +41,11 @@ case "${o}" in
         ;;
     m)
         m=${OPTARG}
-        if [[ "$m" != 'book' && "$m" != 'article' ]]; then usage; fi
+        if [[ "$m" != 'pagebreaks' && "$m" != 'cont' ]]; then usage; fi
         ;;
-    b)
-        b=${OPTARG}
-        if [[ "$b" != 'book' && "$b" != 'dual' ]]; then usage; fi
+    j)
+        j=${OPTARG}
+        if [[ "$j" != 'book' && "$j" != 'dual' ]]; then usage; fi
         ;;
     i)
         i=${OPTARG}
@@ -103,7 +113,8 @@ bookstructure() {
 
 articlestructure() {
     # borramos las partes, para ahorrar espacio
-    sed -i 's/\\section{\([^}]*\)}.*$//g' "$filename".tex
+    # sed -i 's/\\section{\([^}]*\)}.*$//g' "$filename".tex
+    sed -i 's/\\section{\([^}]*\)}.*$/\\section*{\1}\n\\addcontentsline{toc}{section}{\1}/g' "$filename".tex
     # subsecciones, no capítulos
     sed -i 's/\\subsection{\([^}]*\)}.*$/\\subsection*{\1}\n\\addcontentsline{toc}{subsection}{\1}/g' "$filename".tex
 }
@@ -123,18 +134,18 @@ if [[ "$m" == 'default' ]]; then
 fi
 
 ##### FORMATO ARTÍCULO/LIBRO SEGÚN PARÁMETROS #####
-if [[ "$m" == 'article' ]]; then
+if [[ "$m" == 'cont' ]]; then
     sed -i 's/\\documentclass.*$/\\documentclass['"$f"'paper]{scrartcl}/g' "$filename".tex
     articlestructure
 fi
 
-if [[ "$m" == 'book' ]]; then
+if [[ "$m" == 'pagebreaks' ]]; then
     sed -i 's/\\documentclass.*$/\\documentclass['"$f"'paper]{scrbook}/g' "$filename".tex
     bookstructure
 fi
 
 ##### CONVERSIÓN A FICHERO FINAL #####
-if [[ "$b" == 'default' ]]; then
+if [[ "$j" == 'default' ]]; then
     # se compila 2 veces para obtener TOC actualizada
     pdflatex -draftmode "$filename".tex
     pdflatex "$filename".tex
@@ -146,7 +157,7 @@ else
     dvips "$filename".dvi
     mv "$filename".ps "$filename"_temp.ps
     if [[ "$f" == 'a5' ]]; then resize=' -p a4 -s1 '; else resize=' -p a4 '; fi
-    if [[ "$b" == 'dual' ]]; then
+    if [[ "$j" == 'dual' ]]; then
         cat "$filename"_temp.ps | psnup $resize -2 > "$filename".ps
     else
         psbook -s4 "$filename"_temp.ps | psnup $resize -2 > "$filename".ps
