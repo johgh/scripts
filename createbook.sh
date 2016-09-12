@@ -14,13 +14,11 @@ opciones:
         -i especifica que partes se incluyen en el documento (se pueden escoger varias especificando varias veces el parámetro)" 1>&2; exit 1; }
 
 dependencies() {
-    if ! $(which pdflatex &>/dev/null); then
-        sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra psutils
-    fi
-
-    if ! $(which psbook &>/dev/null); then
-        sudo apt-get install psutils
-    fi
+    if ! $(which pdflatex &>/dev/null); then sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra psutils; fi
+    if ! $(which psbook &>/dev/null); then sudo apt-get install psutils; fi
+    if ! $(which psbook &>/dev/null); then sudo apt-get install psutils; fi
+    if ! $(which okular &>/dev/null); then sudo apt-get install okular; fi
+    if ! $(which evince &>/dev/null); then sudo apt-get install evince; fi
 }
 
 # parámetros por defecto
@@ -65,7 +63,7 @@ fi
 
 # comprobamos que el fichero pasado por parámetro exista
 shift $(( OPTIND - 1 ))
-if [[ ! -f $@ || -z $@ ]]; then
+if [[ ! -f $@ || -z $@ || ! $(echo $@ | grep '.md') ]]; then
     usage
 fi
 
