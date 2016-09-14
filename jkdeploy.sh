@@ -33,3 +33,6 @@ cd ..
 git add source
 git commit -m "Commited submodule source."
 git push
+
+# suspend VM machine, execute jkup to run again...
+vagrant suspend
