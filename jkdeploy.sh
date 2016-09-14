@@ -27,7 +27,7 @@ git push
 cd source
 git add --all ./
 git commit --amend -m "Deploy. See https://github.com/johgh/johgh.io-source for changes"
-git push origin --force
+git push origin master --force
 
 cd ..
 git add source
