@@ -177,14 +177,14 @@ notvalidparts() {
 
 if [[ "$j" == 'default' ]]; then
     # se compila 2 veces para obtener TOC actualizada
-    pdflatex -draftmode "$filename".tex
-    pdflatex "$filename".tex
+    pdflatex -draftmode "$filename".tex >/dev/null 2>&1
+    pdflatex "$filename".tex >/dev/null 2>&1
     if [[ ! -f "$filename".pdf ]]; then notvalidparts; fi
     nohup evince "$filename".pdf >/dev/null 2>&1 &
 else
     # se compila 2 veces para obtener TOC actualizada
-    pdflatex -draftmode -output-format dvi "$filename".tex
-    pdflatex -draftmode -output-format dvi "$filename".tex
+    pdflatex -draftmode -output-format dvi "$filename".tex >/dev/null 2>&1
+    pdflatex -draftmode -output-format dvi "$filename".tex >/dev/null 2>&1
     if [[ ! -f "$filename".dvi ]]; then notvalidparts; fi
     dvips -q "$filename".dvi
     mv "$filename".ps "$filename"_temp.ps
