@@ -18,10 +18,13 @@ usage() { echo "$(basename $0) [-f <a4|a5>] [-m <pagebreaks|cont>] [-j <book|dua
         - footer.tex: páginas finales del documento en formato latex" 1>&2; exit 1; }
 
 dependencies() {
-    if ! $(which pdflatex &>/dev/null); then sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish; fi
-    if ! $(which psbook &>/dev/null); then sudo apt-get install psutils; fi
-    if ! $(which okular &>/dev/null); then sudo apt-get install okular; fi
-    if ! $(which evince &>/dev/null); then sudo apt-get install evince; fi
+    if $(which pdflatex &>/dev/null); then sudo apt-get install texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish; fi
+    if $(which psbook &>/dev/null); then sudo apt-get install psutils; fi
+    if $(which okular &>/dev/null); then sudo apt-get install okular; fi
+    if $(which evince &>/dev/null); then sudo apt-get install evince; fi
+    if $(which ruby &>/dev/null); then sudo apt-get install ruby-full; fi
+    if $(gem list | grep kramdown &>/dev/null); then sudo gem install kramdown; fi
+
 }
 
 ##### PARSEO DE PARÁMETROS RECIBIDOS #####
