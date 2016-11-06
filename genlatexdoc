@@ -103,10 +103,12 @@ kramdown -o latex --template document "$filename".md > "$filename".tex
 sed -i 's/\\rule{3in}{0.4pt}/* * */g' "$filename".tex
 # puntos suspensivos sin espacios
 sed -i 's/\\ldots{}/.../g' "$filename".tex
-# guiones más largos, es temporal, al terminar e escribir .md, se hará un reemplazar de guión por 3 guiones excepto en guiones estándar
-sed -i 's/-/---/g' "$filename".tex
+# guiones largos más largos
+sed -i 's/--/---/g' "$filename".tex
 # espacio vertical
-sed -i 's/> > >/\\bigskip/g' "$filename".tex
+sed -i 's/\/\/\//\\bigskip\\bigskip\\bigskip/g' "$filename".tex
+
+
 
 
 ##### INCLUIMOS PARTES SELECCIONADAS SEGÚN PARÁMETROS #####

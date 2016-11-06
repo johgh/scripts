@@ -1,0 +1,40 @@
+#!/bin/bash
+usage() { echo "$(basename $0) <file>.mkv
+    HOW TO GET FLAC FILES FROM BLURAY AUDIO DISCS
+    - First, use makemkv to get .mkv file from bluray audio disc
+    - Then, use this script to get .flac files from .mkv as described above
+    - Finally, use MusicBrainz Picard for writing tags and rename files accordingly" 1>&2; exit 1; }
+
+filename=`basename -s .md $@`
+dirname=`dirname $@`
+cd "$dirname"
+
+if [[ ! -f $filename || -z $filename || ! $(echo $filename | grep '.mkv') ]]; then
+    usage
+fi
+
+### OPTIONS (hardcoded) ###
+# audio track position on bluray disc
+audiotrack=1
+# songs to extract
+firsttrack=1
+lasttrack=99
+
+# split songs by chapter
+mkvmerge -o out.mkv --split chapters:all $filename
+
+for var in `seq $firsttrack $lasttrack`
+do
+    i=$(printf %03d $var)
+    if [[ ! -f out-$i.mkv ]]; then
+        break
+    fi
+    # convert mkv to wav
+    mkvextract tracks out-$i.mkv $audiotrack:out-$i.wav
+    # convert wav to flac (5.1 could require parameter "-ac 6")
+    ffmpeg -i out-$i.wav out-$i.flac
+done
+
+# clean mkv and temporary files
+rm $filename out*.wav out*.mkv
+

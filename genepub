@@ -1,0 +1,139 @@
+#!/bin/bash
+usage() { echo "$(basename $0) [-i <header|footer|body>] <filename>.md
+- opciones:
+    INCLUIR
+        -i especifica que partes se incluyen en el documento (se pueden escoger varias especificando varias veces el parámetro)
+
+- plantillas .tex (a incluir en el mismo directorio que el fichero .md):
+        - header.tex: páginas iniciales del documento en formato latex
+        - footer.tex: páginas finales del documento en formato latex" 1>&2; exit 1; }
+
+dependencies() {
+    if ! $(gem list | grep kramdown >/dev/null) ||
+        ! dpkg -s texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish ruby-full latexml calibre &> /dev/null
+    then
+        echo -e "Some required dependencies were not found. Would you like to install them? (y/n) \c"
+        read
+        if [[ "$REPLY" = "y" ]]; then
+            sudo apt-get install -y texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish latexml calibre
+            sudo apt-get install -y ruby-full
+            sudo gem install kramdown
+        fi
+    fi
+}
+
+##### PARSEO DE PARÁMETROS RECIBIDOS #####
+# definición de parámetros por defecto
+included_args=()
+included=()
+included+=('header')
+included+=('footer')
+included+=('body')
+
+# parámetros recibidos
+while getopts ":i:" o; do
+case "${o}" in
+    i)
+        i=${OPTARG}
+        if [[ "$i" != 'header' && "$i" != 'footer' && "$i" != 'body' ]]; then usage; fi
+        included_args+=($i)
+        ;;
+    *)
+        usage
+        ;;
+esac
+done
+
+# si se han especificado por parametro partes a incluir sobreescrimos las que vienen por defecto
+if [ ! -z $included_args ]; then
+    included=(${included_args[*]})
+fi
+
+# comprobamos que el fichero pasado por parámetro exista
+shift $(( OPTIND - 1 ))
+if [[ ! -f $@ || -z $@ || ! $(echo $@ | grep '.md') ]]; then
+    usage
+fi
+
+
+##### PREPARACIÓN ENTORNO #####
+# comprobación de dependencias
+dependencies
+filename=`basename -s .md $@`
+dirname=`dirname $@`
+# cambio al directorio de trabajo
+cd "$dirname"
+# limpieza de ficheros generados en ejecuciones anteriores
+rm "$filename".epub 2> /dev/null
+
+
+##### CONVERSIÓN DE KRAMDOWN A LATEX #####
+sed 's/^#\ .*$//g' "$filename".md > "$filename"_temp.md
+kramdown -o latex --template document "$filename"_temp.md > "$filename".tex
+
+
+##### POSTPROCESO DEL FICHERO TEX #####
+# se cambia regla horizontal por asteriscos
+sed -i 's/\\rule{3in}{0.4pt}/* * */g' "$filename".tex
+# puntos suspensivos sin espacios
+sed -i 's/\\ldots{}/.../g' "$filename".tex
+# guiones largos más largos
+sed -i 's/--/---/g' "$filename".tex
+# espacio vertical
+sed -i 's/\/\/\//\\bigskip\\bigskip\\bigskip/g' "$filename".tex
+
+
+##### INCLUIMOS PARTES SELECCIONADAS SEGÚN PARÁMETROS #####
+sed -n '/\\begin{document}/,/\\end{document}/P' "$filename".tex | head -n-1 | tail -n+2 > body.tex
+
+# añadimos cabecera (latex)
+cat <<EOF > "$filename".tex
+\documentclass[a5paper]{scrbook}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage[spanish]{babel}
+\setcounter{footnote}{0}
+\makeatletter
+\@ifundefined{date}{}{\date{}}
+\makeatother
+\renewcommand{\contentsname}{{ÍNDICE}}
+\renewcommand{\partname}{Parte}
+\begin{document}
+EOF
+
+if [[ " ${included[@]} " =~ " header " ]]; then cat header.tex >> "$filename".tex 2> /dev/null; fi
+if [[ " ${included[@]} " =~ " body " ]]; then cat body.tex >> "$filename".tex 2> /dev/null; fi
+if [[ " ${included[@]} " =~ " footer " ]]; then cat footer.tex >> "$filename".tex 2> /dev/null; fi
+
+# añadimos marca de fin de documento (latex)
+echo '\end{document}' >> "$filename".tex
+
+# formato a5, si soporta capítulos a diferencia de scrartcl
+sed -i 's/\\subsection{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
+# cambiamos section por parte
+sed -i 's/\\section{\([^}]*\)}.*$/\\part*{\1}\n\\addcontentsline{toc}{part}{\1}/g' "$filename".tex
+
+
+##### CONVERSIÓN A FICHERO FINAL #####
+notvalidparts() {
+    echo -e "Included parts not found or invalid syntax: $included\nPlease include your header.tex and/or footer.tex file in the same directory as your .md file"
+    exit 1
+}
+
+latexml --dest="$filename".xml "$filename".tex >/dev/null 2>&1
+sed -i 's/.*resource.*$//g' "$filename".xml
+sed -i 's/<para\ xml.*//g' "$filename".xml
+sed -i 's/<\/para>//g' "$filename".xml
+latexmlpost -dest="$filename".xhtml "$filename".xml >/dev/null 2>&1
+
+ebook-convert "$filename".xhtml "$filename".epub --language es --no-default-epub-cover --use-auto-toc --epub-toc-at-end --remove-paragraph-spacing \
+--title 'Pensamiento divergente' --authors 'Jorge Hervás' >/dev/null 2>&1
+
+# todo: --page-breaks-before h5
+
+ebook-viewer "$filename".epub
+
+##### LIMPIEZA DE FICHEROS TEMPORALES #####
+rm "$filename"_temp.md body.tex 2> /dev/null
+
