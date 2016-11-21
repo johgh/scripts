@@ -5,6 +5,10 @@ usage() { echo "$(basename $0) <file>.mkv
     - Then, use this script to get .flac files from .mkv as described above
     - Finally, use MusicBrainz Picard for writing tags and rename files accordingly" 1>&2; exit 1; }
 
+if [[ -z $@ ]]; then
+    usage
+fi
+
 filename=`basename -s .md $@`
 dirname=`dirname $@`
 cd "$dirname"
