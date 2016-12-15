@@ -1,17 +1,22 @@
 #!/bin/bash
-usage() { echo "$(basename $0) [-f <a4|a5>] [-m <pagebreaks|cont>] [-j <book|dual>] [-i <header|footer|body>] <filename>.md
+usage() { echo "$(basename $0) [-f <a4|a5|b4|b5|c4|c5>] [-m <breaks|rightbreaks|cont>] [-j <book|dual>] [-i <header|footer|body>] <filename>.md
 - opciones:
     FORMATO
-        -f a5 (modo por defecto): Formato de página A5 (el modo por defecto, -m, es 'pagebreak')
+        -f a5 (modo por defecto): Formato de página A5 (el modo por defecto, -m, es 'rightbreaks')
         -f a4: Formato de página A4 (el modo por defecto, -m, es 'cont')
+        -s escala: Factor de ampliación.
     MODO
         -m cont[inuous]: todo el texto contínuo, sin saltos de página
-        -m pagebreaks: partes y capítulos con saltos de página (estilo libro)
+        -m breaks: partes y capítulos con saltos de página
+        -m rightbreaks: partes y capítulos con saltos de página y comenzando siempre en la parte derecha (modo por defecto)
     JUNTAR
         -j dual: junta 2 páginas en cada A4 con ordenación estándar
         -j book: pone 2 páginas en cada A4 en formato folleto
     INCLUIR
         -i especifica que partes se incluyen en el documento (se pueden escoger varias especificando varias veces el parámetro)
+    METADATOS
+        -t título a incluir en los metadatos y nombre del pdf
+        -a autor a incluir en los metadatos del pdf
 
 - plantillas .tex (a incluir en el mismo directorio que el fichero .md):
         - header.tex: páginas iniciales del documento en formato latex
@@ -25,8 +30,7 @@ dependencies() {
         read
         if [[ "$REPLY" = "y" ]]; then
             sudo apt-get install -y texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish
-            sudo apt-get install -y psutils
-            sudo apt-get install -y okular
+            sudo apt-get install -y pdfjam
             sudo apt-get install -y evince
             sudo apt-get install -y ruby-full
             sudo gem install kramdown
@@ -36,9 +40,11 @@ dependencies() {
 
 ##### PARSEO DE PARÁMETROS RECIBIDOS #####
 # definición de parámetros por defecto
+mode=scrbook
 f=a5
 j=default
 m=default
+s=default
 included_args=()
 included=()
 included+=('header')
@@ -46,15 +52,15 @@ included+=('footer')
 included+=('body')
 
 # parámetros recibidos
-while getopts ":f:i:j:m:" o; do
+while getopts ":f:i:j:m:s:t:a:" o; do
 case "${o}" in
     f)
         f=${OPTARG}
-        if [[ "$f" != 'a4' && "$f" != 'a5' ]]; then usage; fi
+        if [[ "$f" != 'a4' && "$f" != 'a5' && "$f" != 'b4' && "$f" != 'b5'  && "$f" != 'c4' && "$f" != 'c5' ]]; then usage; fi
         ;;
     m)
         m=${OPTARG}
-        if [[ "$m" != 'pagebreaks' && "$m" != 'cont' ]]; then usage; fi
+        if [[ "$m" != 'cont' && "$m" != 'breaks' && "$m" != 'rightbreaks' ]]; then usage; fi
         ;;
     j)
         j=${OPTARG}
@@ -64,6 +70,18 @@ case "${o}" in
         i=${OPTARG}
         if [[ "$i" != 'header' && "$i" != 'footer' && "$i" != 'body' ]]; then usage; fi
         included_args+=($i)
+        ;;
+    s)
+        s=${OPTARG}
+        if [[ ! "$s" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then usage; fi
+        ;;
+    t)
+        t=${OPTARG}
+        if [[ -z "$t" ]]; then usage; fi
+        ;;
+    a)
+        a=${OPTARG}
+        if [[ -z "$a" ]]; then usage; fi
         ;;
     *)
         usage
@@ -121,11 +139,12 @@ cat <<EOF > "$filename".tex
 \usepackage[T1]{fontenc}
 \usepackage{listings}
 \usepackage[spanish]{babel}
+\addtokomafont{chapterentry}{\mdseries}
+\addtokomafont{chapterentry}{\rmfamily}
 \setcounter{footnote}{0}
 \makeatletter
 \@ifundefined{date}{}{\date{}}
 \makeatother
-\renewcommand{\contentsname}{{ÍNDICE}}
 \renewcommand{\partname}{Parte}
 \begin{document}
 EOF
@@ -155,15 +174,14 @@ articlestructure() {
 }
 
 if [[ "$m" == 'default' ]]; then
-    if [[ "$f" == 'a4' ]]; then
+    if [[ "$f" == *"4"* ]]; then
         mode=scrartcl
         # formato A4 scrartcl
-        sed -i 's/\\documentclass.*$/\\documentclass[a4paper]{scrartcl}/g' "$filename".tex
+        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
         articlestructure
     else
-        mode=scrbook
         # formato A5 scrbook
-        sed -i 's/\\documentclass.*$/\\documentclass[a5paper]{scrbook}/g' "$filename".tex
+        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
         bookstructure
     fi
 fi
@@ -171,44 +189,61 @@ fi
 
 ##### FORMATO ARTÍCULO/LIBRO SEGÚN PARÁMETROS #####
 if [[ "$m" == 'cont' ]]; then
-    sed -i 's/\\documentclass.*$/\\documentclass['"$f"'paper]{scrartcl}/g' "$filename".tex
+    sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
     articlestructure
+else
+    if [[ "$m" == 'breaks' ]]; then
+        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,openany,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
+        bookstructure
+    else
+        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
+        bookstructure
+    fi
 fi
 
-if [[ "$m" == 'pagebreaks' ]]; then
-    sed -i 's/\\documentclass.*$/\\documentclass['"$f"'paper]{scrbook}/g' "$filename".tex
-    bookstructure
-fi
 
-
-##### CONVERSIÓN A FICHERO FINAL #####
+##### CONVERSIÓN A PDF #####
 notvalidparts() {
     echo -e "Included parts not found or invalid syntax: $included\nPlease include your header.tex and/or footer.tex file in the same directory as your .md file"
     exit 1
 }
 
-if [[ "$j" == 'default' ]]; then
-    # se compila 2 veces para obtener TOC actualizada
-    pdflatex -draftmode "$filename".tex >/dev/null 2>&1
-    pdflatex "$filename".tex >/dev/null 2>&1
-    if [[ ! -f "$filename".pdf ]]; then notvalidparts; fi
-    nohup evince "$filename".pdf >/dev/null 2>&1 &
-else
-    # se compila 2 veces para obtener TOC actualizada
-    pdflatex -draftmode -output-format dvi "$filename".tex >/dev/null 2>&1
-    pdflatex -draftmode -output-format dvi "$filename".tex >/dev/null 2>&1
-    if [[ ! -f "$filename".dvi ]]; then notvalidparts; fi
-    dvips -q "$filename".dvi
-    mv "$filename".ps "$filename"_temp.ps
-    if [[ "$f" == 'a5' ]]; then paramspsn=' -q -p a4 -s1 '; else paramspsn=' -q -p a4 '; fi
-    if [[ "$j" == 'dual' ]]; then
-        cat "$filename"_temp.ps | psnup $paramspsn -2 > "$filename".ps
-    else
-        psbook -q -s4 "$filename"_temp.ps | psnup $paramspsn -2 > "$filename".ps
-    fi
-    nohup okular "$filename".ps >/dev/null 2>&1 &
+# se compila 2 veces para obtener TOC actualizada
+pdflatex -draftmode "$filename".tex >/dev/null 2>&1
+pdflatex "$filename".tex >/dev/null 2>&1
+
+if [[ "$s" != 'default' ]]; then
+    scale="--noautoscale true --scale $s"
 fi
 
+if [[ ! -z "$t" ]]; then
+    title="$t"
+else
+    title="$filename"
+fi
+
+if [[ ! -z "$a" ]]; then
+    author=" --pdfauthor \"$a\" "
+else
+    author=''
+fi
+
+##### MAQUETADO MEDIANTE PDFJAM #####
+if [[ ! -f "$filename".pdf ]]; then notvalidparts; fi
+commonargs="--keepinfo --pdftitle '$title' $author $scale $filename.pdf"
+
+if [[ "$j" != 'default' ]]; then
+    if [[ "$j" == 'dual' ]]; then
+        eval pdfjam --landscape --nup 2x1 --frame true $commonargs
+    else
+        eval pdfjam --landscape --signature\* 4 --preamble "\usepackage{everyshi}\makeatletter\EveryShipout{\ifodd\c@page\pdfpageattr{/Rotate 180}\fi}\makeatother" $commonargs
+    fi
+else
+    eval pdfjam $commonargs
+fi
+
+mv "$filename"-pdfjam.pdf "$title".pdf >/dev/null 2>&1 &
+nohup evince "$title".pdf >/dev/null 2>&1 &
 
 ##### LIMPIEZA DE FICHEROS TEMPORALES #####
 rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps "$filename".tex body.tex 2> /dev/null
