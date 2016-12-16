@@ -5,6 +5,8 @@ usage() { echo "$(basename $0) [-f <a4|a5|b4|b5|c4|c5>] [-m <breaks|rightbreaks|
         -f a5 (modo por defecto): Formato de página A5 (el modo por defecto, -m, es 'rightbreaks')
         -f a4: Formato de página A4 (el modo por defecto, -m, es 'cont')
         -s escala: Factor de ampliación.
+        -o offset vertical: valor decimal en cm
+        -b box: mostrar marco alrededor de cada página
     MODO
         -m cont[inuous]: todo el texto contínuo, sin saltos de página
         -m breaks: partes y capítulos con saltos de página
@@ -52,8 +54,8 @@ included+=('footer')
 included+=('body')
 
 # parámetros recibidos
-while getopts ":f:i:j:m:s:t:a:" o; do
-case "${o}" in
+while getopts ":f:i:j:m:s:t:a:o:b" option; do
+case "${option}" in
     f)
         f=${OPTARG}
         if [[ "$f" != 'a4' && "$f" != 'a5' && "$f" != 'b4' && "$f" != 'b5'  && "$f" != 'c4' && "$f" != 'c5' ]]; then usage; fi
@@ -74,6 +76,13 @@ case "${o}" in
     s)
         s=${OPTARG}
         if [[ ! "$s" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then usage; fi
+        ;;
+    o)
+        o=${OPTARG}
+        if [[ ! "$o" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then usage; fi
+        ;;
+    b)
+        b=true
         ;;
     t)
         t=${OPTARG}
@@ -139,8 +148,6 @@ cat <<EOF > "$filename".tex
 \usepackage[T1]{fontenc}
 \usepackage{listings}
 \usepackage[spanish]{babel}
-\addtokomafont{chapterentry}{\mdseries}
-\addtokomafont{chapterentry}{\rmfamily}
 \setcounter{footnote}{0}
 \makeatletter
 \@ifundefined{date}{}{\date{}}
@@ -148,6 +155,9 @@ cat <<EOF > "$filename".tex
 \renewcommand{\partname}{Parte}
 \begin{document}
 EOF
+
+# \addtokomafont{chapterentry}{\mdseries}
+# \addtokomafont{chapterentry}{\rmfamily}
 
 if [[ " ${included[@]} " =~ " header " ]]; then cat header.tex >> "$filename".tex 2> /dev/null; fi
 if [[ " ${included[@]} " =~ " body " ]]; then cat body.tex >> "$filename".tex 2> /dev/null; fi
@@ -157,7 +167,7 @@ if [[ " ${included[@]} " =~ " footer " ]]; then cat footer.tex >> "$filename".te
 echo '\end{document}' >> "$filename".tex
 
 
-##### FORMATO A4/A5 SEGÚN PARÁMETROS #####
+##### FORMATO A4/A5/LIBRO/ARTICULO SEGÚN PARÁMETROS #####
 bookstructure() {
     # formato a5, si soporta capítulos a diferencia de scrartcl
     sed -i 's/\\subsection{\([^}]*\)}.*$/\\chapter*{\1}\n\\addcontentsline{toc}{chapter}{\1}/g' "$filename".tex
@@ -173,32 +183,27 @@ articlestructure() {
     sed -i 's/\\subsection{\([^}]*\)}.*$/\\subsection*{\1}\n\\addcontentsline{toc}{subsection}{\1}/g' "$filename".tex
 }
 
+
+openany=''
 if [[ "$m" == 'default' ]]; then
     if [[ "$f" == *"4"* ]]; then
         mode=scrartcl
-        # formato A4 scrartcl
-        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
-        articlestructure
-    else
-        # formato A5 scrbook
-        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
-        bookstructure
     fi
 fi
 
-
-##### FORMATO ARTÍCULO/LIBRO SEGÚN PARÁMETROS #####
 if [[ "$m" == 'cont' ]]; then
-    sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
+    mode=scrartcl
+fi
+
+if [[ "$m" == 'breaks' ]]; then
+    openany='openany,'
+fi
+
+sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$openany"''"$f"'paper]{'"$mode"'}/g' "$filename".tex
+if [[ $mode == 'scrartcl' ]]; then
     articlestructure
 else
-    if [[ "$m" == 'breaks' ]]; then
-        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,openany,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
-        bookstructure
-    else
-        sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$f"'paper]{'"$mode"'}/g' "$filename".tex
-        bookstructure
-    fi
+    bookstructure
 fi
 
 
@@ -209,42 +214,42 @@ notvalidparts() {
 }
 
 # se compila 2 veces para obtener TOC actualizada
-pdflatex -draftmode "$filename".tex >/dev/null 2>&1
-pdflatex "$filename".tex >/dev/null 2>&1
+pdflatex -draftmode "$filename".tex >/dev/null 2>&1 &
+pdflatex "$filename".tex >/dev/null 2>&1 &
+if [[ ! -f "$filename".pdf ]]; then notvalidparts; fi
 
-if [[ "$s" != 'default' ]]; then
-    scale="--noautoscale true --scale $s"
-fi
-
-if [[ ! -z "$t" ]]; then
-    title="$t"
-else
-    title="$filename"
-fi
-
-if [[ ! -z "$a" ]]; then
-    author=" --pdfauthor \"$a\" "
-else
-    author=''
-fi
 
 ##### MAQUETADO MEDIANTE PDFJAM #####
-if [[ ! -f "$filename".pdf ]]; then notvalidparts; fi
-commonargs="--keepinfo --pdftitle '$title' $author $scale $filename.pdf"
+if [[ "$s" != 'default' ]]; then scale="--noautoscale true --scale $s"; else scale=""; fi
+if [[ ! -z "$t" ]]; then title="$t"; else title="$filename"; fi
+if [[ ! -z "$a" ]]; then author=" --pdfauthor \"$a\" "; else author=''; fi
+if [[ ! -z "$b" ]]; then box=" --frame true "; else box=''; fi
 
 if [[ "$j" != 'default' ]]; then
+    landscape=' --landscape '
     if [[ "$j" == 'dual' ]]; then
-        eval pdfjam --landscape --nup 2x1 --frame true $commonargs
+        joinargs=' --nup 2x1 '
     else
-        eval pdfjam --landscape --signature\* 4 --preamble "\usepackage{everyshi}\makeatletter\EveryShipout{\ifodd\c@page\pdfpageattr{/Rotate 180}\fi}\makeatother" $commonargs
+        joinargs=' --signature 4 --preamble "\usepackage{everyshi}\makeatletter\EveryShipout{\ifodd\c@page\pdfpageattr{/Rotate 180}\fi}\makeatother" '
     fi
 else
-    eval pdfjam $commonargs
+    landscape=''
+    joinargs=''
 fi
 
-mv "$filename"-pdfjam.pdf "$title".pdf >/dev/null 2>&1 &
-nohup evince "$title".pdf >/dev/null 2>&1 &
+eval "pdfjam --keepinfo --pdftitle '$title' $author $joinargs $scale $box $landscape $filename.pdf" >/dev/null 2>&1 &
+
+# offset se hace en un paso separado para evitar problemas con "signature"
+if [[ ! -z $o ]]; then
+    wait
+    eval 'pdfjam $landscape --offset "0cm -${o}cm" "$filename"-pdfjam.pdf' >/dev/null 2>&1 &
+    mv "$filename"-pdfjam-pdfjam.pdf "$filename"-pdfjam.pdf
+fi
+
+mv "$filename"-pdfjam.pdf "$filename".pdf >/dev/null 2>&1 &
+nohup evince "$filename".pdf >/dev/null 2>&1 &
+
 
 ##### LIMPIEZA DE FICHEROS TEMPORALES #####
-rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps "$filename".tex body.tex 2> /dev/null
+rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps "$filename".tex body.tex "$filename"-pdfjam.pdf 2> /dev/null
 
