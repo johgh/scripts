@@ -9,8 +9,8 @@ usage() { echo "$(basename $0) [-f <a4|a5|b4|b5|c4|c5>] [-m <breaks|rightbreaks|
         -b box: mostrar marco alrededor de cada página
     MODO
         -m cont[inuous]: todo el texto contínuo, sin saltos de página
-        -m breaks: partes y capítulos con saltos de página
-        -m rightbreaks: partes y capítulos con saltos de página y comenzando siempre en la parte derecha (modo por defecto)
+        -m breaks: partes y capítulos con saltos de página (modo por defecto)
+        -m rightbreaks: partes y capítulos con saltos de página y comenzando siempre en la parte derecha
     JUNTAR
         -j dual: junta 2 páginas en cada A4 con ordenación estándar
         -j book: pone 2 páginas en cada A4 en formato folleto
@@ -195,7 +195,7 @@ if [[ "$m" == 'cont' ]]; then
     mode=scrartcl
 fi
 
-if [[ "$m" == 'breaks' ]]; then
+if [[ "$m" != 'rightbreaks' ]]; then
     openany='openany,'
 fi
 
@@ -214,8 +214,8 @@ notvalidparts() {
 }
 
 # se compila 2 veces para obtener TOC actualizada
-pdflatex -draftmode "$filename".tex >/dev/null 2>&1 &
-pdflatex "$filename".tex >/dev/null 2>&1 &
+pdflatex -draftmode "$filename".tex >/dev/null 2>&1
+pdflatex "$filename".tex >/dev/null 2>&1
 if [[ ! -f "$filename".pdf ]]; then notvalidparts; fi
 
 
@@ -237,12 +237,11 @@ else
     joinargs=''
 fi
 
-eval "pdfjam --keepinfo --pdftitle '$title' $author $joinargs $scale $box $landscape $filename.pdf" >/dev/null 2>&1 &
+eval "pdfjam --keepinfo --pdftitle '$title' $author $joinargs $scale $box $landscape $filename.pdf" >/dev/null 2>&1
 
 # offset se hace en un paso separado para evitar problemas con "signature"
 if [[ ! -z $o ]]; then
-    wait
-    eval 'pdfjam $landscape --offset "0cm -${o}cm" "$filename"-pdfjam.pdf' >/dev/null 2>&1 &
+    eval 'pdfjam $landscape --offset "0cm -${o}cm" "$filename"-pdfjam.pdf' >/dev/null 2>&1
     mv "$filename"-pdfjam-pdfjam.pdf "$filename"-pdfjam.pdf
 fi
 
