@@ -2,11 +2,16 @@
 usage() { echo "$(basename $0) [-f <a4|a5|b4|b5|c4|c5>] [-m <breaks|rightbreaks|cont>] [-j <book|dual>] [-i <header|footer|body>] <filename>.md
 - opciones:
     FORMATO
-        -f a5 (modo por defecto): Formato de página A5 (el modo por defecto, -m, es 'rightbreaks')
-        -f a4: Formato de página A4 (el modo por defecto, -m, es 'cont')
+        -f default: formato libro (6x9in)
+        -f a5: Formato de página A5
+        -f a4: Formato de página A4
+        -g geometry: listado de parámetros de geometría en formato latex. ej: 'margin=2.3cm, footskip=1.14cm, bmargin=2.67cm'
         -s escala: Factor de ampliación.
         -o offset vertical: valor decimal en cm
-        -b box: mostrar marco alrededor de cada página
+        -l linespace: por defecto 1
+    METADATOS
+        -t título a incluir en los metadatos y nombre del pdf
+        -a autor a incluir en los metadatos del pdf
     MODO
         -m cont[inuous]: todo el texto contínuo, sin saltos de página
         -m breaks: partes y capítulos con saltos de página (modo por defecto)
@@ -14,11 +19,9 @@ usage() { echo "$(basename $0) [-f <a4|a5|b4|b5|c4|c5>] [-m <breaks|rightbreaks|
     JUNTAR
         -j dual: junta 2 páginas en cada A4 con ordenación estándar
         -j book: pone 2 páginas en cada A4 en formato folleto
+        -b box: mostrar marco alrededor de cada página (sólo se muestra cuando hay 2 páginas por A4)
     INCLUIR
         -i especifica que partes se incluyen en el documento (se pueden escoger varias especificando varias veces el parámetro)
-    METADATOS
-        -t título a incluir en los metadatos y nombre del pdf
-        -a autor a incluir en los metadatos del pdf
 
 - plantillas .tex (a incluir en el mismo directorio que el fichero .md):
         - header.tex: páginas iniciales del documento en formato latex
@@ -43,7 +46,7 @@ dependencies() {
 ##### PARSEO DE PARÁMETROS RECIBIDOS #####
 # definición de parámetros por defecto
 mode=scrbook
-f=a5
+f=default
 j=default
 m=default
 s=default
@@ -54,11 +57,14 @@ included+=('footer')
 included+=('body')
 
 # parámetros recibidos
-while getopts ":f:i:j:m:s:t:a:o:b" option; do
+while getopts ":f:i:j:m:s:t:a:o:g:l:b" option; do
 case "${option}" in
     f)
         f=${OPTARG}
         if [[ "$f" != 'a4' && "$f" != 'a5' && "$f" != 'b4' && "$f" != 'b5'  && "$f" != 'c4' && "$f" != 'c5' ]]; then usage; fi
+        ;;
+    g)
+        g=${OPTARG}
         ;;
     m)
         m=${OPTARG}
@@ -79,7 +85,11 @@ case "${option}" in
         ;;
     o)
         o=${OPTARG}
-        if [[ ! "$o" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then usage; fi
+        # if [[ ! "$o" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then usage; fi
+        ;;
+    l)
+        l=${OPTARG}
+        # if [[ ! "$o" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then usage; fi
         ;;
     b)
         b=true
@@ -109,7 +119,6 @@ if [[ ! -f $@ || -z $@ || ! $(echo $@ | grep '.md') ]]; then
     usage
 fi
 
-
 ##### PREPARACIÓN ENTORNO #####
 # comprobación de dependencias
 dependencies
@@ -119,6 +128,29 @@ dirname=`dirname $@`
 cd "$dirname"
 # limpieza de ficheros generados en ejecuciones anteriores
 rm "$filename".pdf "$filename".ps 2> /dev/null
+
+##### PARSEO DE PARÁMETROS
+if [[ ! -z "$t" ]]; then title="$t"; else title="$filename"; fi
+if [[ ! -z "$a" ]]; then author="$a"; else author="-"; fi
+if [[ ! -z "$g" ]]; then geometry="$g,"; else geometry=""; fi
+if [[ ! -z "$l" ]]; then linespace="\renewcommand{\baselinestretch}{$l}\normalsize"; else linespace=""; fi
+
+openany=''
+paper=''
+if [[ "$m" == 'cont' ]]; then
+    mode=scrartcl
+else
+    if [[ "$f" == *"4"* ]]; then
+        mode=scrartcl
+    else
+        # komastyle="\addtokomafont{chapterentry}{\mdseries}\addtokomafont{chapterentry}{\rmfamily}"
+        komastyle=""
+    fi
+fi
+
+if [[ "$m" != 'rightbreaks' ]]; then
+    openany=',openany'
+fi
 
 
 ##### CONVERSIÓN DE KRAMDOWN A LATEX #####
@@ -131,11 +163,9 @@ sed -i 's/\\rule{3in}{0.4pt}/* * */g' "$filename".tex
 # puntos suspensivos sin espacios
 sed -i 's/\\ldots{}/.../g' "$filename".tex
 # guiones largos más largos
-sed -i 's/--/---/g' "$filename".tex
+# sed -i 's/--/---/g' "$filename".tex
 # espacio vertical
 sed -i 's/\/\/\//\\bigskip\\bigskip\\bigskip/g' "$filename".tex
-
-
 
 
 ##### INCLUIMOS PARTES SELECCIONADAS SEGÚN PARÁMETROS #####
@@ -145,9 +175,13 @@ sed -n '/\\begin{document}/,/\\end{document}/P' "$filename".tex | head -n-1 | ta
 cat <<EOF > "$filename".tex
 \documentclass
 \usepackage[utf8x]{inputenc}
-\usepackage[T1]{fontenc}
 \usepackage{listings}
+\usepackage[$geometry paperwidth=6in, paperheight=9in]{geometry}
+$linespace
 \usepackage[spanish]{babel}
+\usepackage[pdftex,
+            pdfauthor={$author},
+            pdftitle={$title}]{hyperref}
 \setcounter{footnote}{0}
 \makeatletter
 \@ifundefined{date}{}{\date{}}
@@ -155,9 +189,8 @@ cat <<EOF > "$filename".tex
 \renewcommand{\partname}{Parte}
 \begin{document}
 EOF
-
-# \addtokomafont{chapterentry}{\mdseries}
-# \addtokomafont{chapterentry}{\rmfamily}
+# \renewcommand{\baselinestretch}{2}\normalsize
+# \usepackage[T1]{fontenc}
 
 if [[ " ${included[@]} " =~ " header " ]]; then cat header.tex >> "$filename".tex 2> /dev/null; fi
 if [[ " ${included[@]} " =~ " body " ]]; then cat body.tex >> "$filename".tex 2> /dev/null; fi
@@ -165,7 +198,6 @@ if [[ " ${included[@]} " =~ " footer " ]]; then cat footer.tex >> "$filename".te
 
 # añadimos marca de fin de documento (latex)
 echo '\end{document}' >> "$filename".tex
-
 
 ##### FORMATO A4/A5/LIBRO/ARTICULO SEGÚN PARÁMETROS #####
 bookstructure() {
@@ -183,23 +215,13 @@ articlestructure() {
     sed -i 's/\\subsection{\([^}]*\)}.*$/\\subsection*{\1}\n\\addcontentsline{toc}{subsection}{\1}/g' "$filename".tex
 }
 
-
-openany=''
-if [[ "$m" == 'default' ]]; then
-    if [[ "$f" == *"4"* ]]; then
-        mode=scrartcl
-    fi
+if [[ "$f" != 'default' ]]; then
+    paper=','"$f"'paper'
+    # si el formato no es 6x9, lo borramos de geometry
+    sed -i 's/paperwidth.*$/\]{geometry}/g' BL.tex
 fi
 
-if [[ "$m" == 'cont' ]]; then
-    mode=scrartcl
-fi
-
-if [[ "$m" != 'rightbreaks' ]]; then
-    openany='openany,'
-fi
-
-sed -i 's/\\documentclass.*$/\\documentclass[toc=chapterentrydotfill,'"$openany"''"$f"'paper]{'"$mode"'}/g' "$filename".tex
+sed -i 's/\\documentclass.*$/\\documentclass[twoside,toc=chapterentrydotfill'"$openany"''"$paper"']{'"$mode"'}/g' "$filename".tex
 if [[ $mode == 'scrartcl' ]]; then
     articlestructure
 else
@@ -214,41 +236,37 @@ notvalidparts() {
 }
 
 # se compila 2 veces para obtener TOC actualizada
-pdflatex -draftmode "$filename".tex >/dev/null 2>&1
-pdflatex "$filename".tex >/dev/null 2>&1
+pdflatex -draftmode "$filename".tex
+pdflatex "$filename".tex
 if [[ ! -f "$filename".pdf ]]; then notvalidparts; fi
 
-
 ##### MAQUETADO MEDIANTE PDFJAM #####
-if [[ "$s" != 'default' ]]; then scale="--noautoscale true --scale $s"; else scale=""; fi
-if [[ ! -z "$t" ]]; then title="$t"; else title="$filename"; fi
-if [[ ! -z "$a" ]]; then author=" --pdfauthor \"$a\" "; else author=''; fi
-if [[ ! -z "$b" ]]; then box=" --frame true "; else box=''; fi
-
 if [[ "$j" != 'default' ]]; then
+    if [[ ! -z "$b" ]]; then box=" --frame true "; else box=''; fi
+
     landscape=' --landscape '
     if [[ "$j" == 'dual' ]]; then
         joinargs=' --nup 2x1 '
     else
         joinargs=' --signature 4 --preamble "\usepackage{everyshi}\makeatletter\EveryShipout{\ifodd\c@page\pdfpageattr{/Rotate 180}\fi}\makeatother" '
     fi
-else
-    landscape=''
-    joinargs=''
+
+    eval "pdfjam --keepinfo $joinargs $box $landscape $filename.pdf"
+    mv "$filename"-pdfjam.pdf "$filename".pdf >/dev/null 2>&1
 fi
 
-eval "pdfjam --keepinfo --pdftitle '$title' $author $joinargs $scale $box $landscape $filename.pdf" >/dev/null 2>&1
-
-# offset se hace en un paso separado para evitar problemas con "signature"
-if [[ ! -z $o ]]; then
-    eval 'pdfjam $landscape --offset "0cm -${o}cm" "$filename"-pdfjam.pdf' >/dev/null 2>&1
-    mv "$filename"-pdfjam-pdfjam.pdf "$filename"-pdfjam.pdf
+if [[ ! -z $o || "$s" != 'default' ]]; then
+    if [[ "$s" != 'default' ]]; then scale="--noautoscale true --scale $s"; else scale=""; fi
+    if [[ ! -z "$o" ]]; then offset='--offset \"$s\"'; else offset=""; fi
+    if [[ "$f" == 'default' ]]; then fitpaper='--papersize {6in,9in}'; fi
+    if [[ "$f" != 'default' ]]; then fitpaper='--'"$f"'paper'; fi
+    if [[ "$j" != 'default' ]]; then fitpaper=''; fi
+    eval 'pdfjam --keepinfo $fitpaper $landscape $scale $offset "$filename".pdf'
+    mv "$filename"-pdfjam.pdf "$filename".pdf >/dev/null 2>&1
 fi
 
-mv "$filename"-pdfjam.pdf "$filename".pdf >/dev/null 2>&1 &
 nohup evince "$filename".pdf >/dev/null 2>&1 &
 
 
 ##### LIMPIEZA DE FICHEROS TEMPORALES #####
-rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps "$filename".tex body.tex "$filename"-pdfjam.pdf 2> /dev/null
-
+rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps body.tex "$filename".tex "$filename"-pdfjam.pdf 2> /dev/null
