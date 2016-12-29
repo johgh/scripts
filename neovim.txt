@@ -1,0 +1,11 @@
+set termguicolors
+:let $NVIM_TUI_ENABLE_CURSOR_SHAPE=1
+.tmux.config:
+set -g -a terminal-overrides ',*:Ss=\E[%p1%d q:Se=\E[2 q'
+set -g default-terminal "screen-256color"
+set -g escape-time 10
+nnoremap <silent> <BS> :TmuxNavigateLeft<cr>
+https://github.com/christoomey/vim-tmux-navigator
+https://github.com/SpaceVim/SpaceVim (dist plugins interesantes)
+https://github.com/rafi/vim-tinyline
+
