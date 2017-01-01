@@ -218,7 +218,7 @@ articlestructure() {
 if [[ "$f" != 'default' ]]; then
     paper=','"$f"'paper'
     # si el formato no es 6x9, lo borramos de geometry
-    sed -i 's/paperwidth.*$/\]{geometry}/g' BL.tex
+    sed -i 's/paperwidth.*$/\]{geometry}/g' "$filename".tex
 fi
 
 sed -i 's/\\documentclass.*$/\\documentclass[twoside,toc=chapterentrydotfill'"$openany"''"$paper"']{'"$mode"'}/g' "$filename".tex
