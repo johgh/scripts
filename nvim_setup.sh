@@ -6,6 +6,10 @@ CHECK_DEPS=$HOME/bin/check_deps
 
 $CHECK_DEPS "$dependencies"
 
+# install fzf
+git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+~/.fzf/install
+
 if [[ -f ~/.vimrc || -d ~/.vim ]]
 then
     read -n 1 -s -p $'Previous installation detected. Do you want to continue overwriting previous installation? [y/N]\n' option
@@ -46,6 +50,7 @@ rm -Rf .vim*
 
 # get .vim dir and install plugins
 git clone --recursive https://github.com/johgh/vim .vim
+ln -s .vim ~/config/nvim
 nvim +PlugInstall +qall
 
 # if [ -f $HOME/.vim/bundle/YouCompleteMe/install.sh ]
@@ -72,6 +77,3 @@ echo "$content" | sudo tee /etc/php-codesniffer/CodeSniffer.conf > /dev/null
 
 # symlink .vimrc to $HOME
 ln -fs $HOME/.vim/vimrc $HOME/.vimrc
-# symlink .vim to neovim dir
-ln -s ~/.vim ~/.config/nvim
-ln -s ~/.vimrc ~/.config/nvim/init.vim

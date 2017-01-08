@@ -179,6 +179,7 @@ cat <<EOF > "$filename".tex
 \usepackage[utf8x]{inputenc}
 \usepackage{listings}
 \usepackage{microtype}
+\usepackage{pdfpages}
 \usepackage[$geometry paperwidth=6in, paperheight=9in]{geometry}
 $linespace
 \usepackage[spanish]{babel}
@@ -274,4 +275,4 @@ nohup evince "$filename".pdf >/dev/null 2>&1 &
 
 
 ##### LIMPIEZA DE FICHEROS TEMPORALES #####
-rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps body.tex "$filename".tex "$filename"-pdfjam.pdf 2> /dev/null
+# rm *.toc *.dvi *.aux *.out *.log "$filename"_temp.ps body.tex "$filename".tex "$filename"-pdfjam.pdf 2> /dev/null
