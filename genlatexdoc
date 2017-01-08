@@ -166,7 +166,9 @@ sed -i 's/\\ldots{}/.../g' "$filename".tex
 # sed -i 's/--/---/g' "$filename".tex
 # espacio vertical
 sed -i 's/\/\/\//\\bigskip\\bigskip\\bigskip/g' "$filename".tex
-
+# markup for manual adjustment of vbox badness
+sed -i 's/beginsloppy/\\begin{sloppypar}/g' "$filename".tex
+sed -i 's/endsloppy/\\end{sloppypar}/g' "$filename".tex
 
 ##### INCLUIMOS PARTES SELECCIONADAS SEGÚN PARÁMETROS #####
 sed -n '/\\begin{document}/,/\\end{document}/P' "$filename".tex | head -n-1 | tail -n+2 > body.tex
@@ -176,6 +178,7 @@ cat <<EOF > "$filename".tex
 \documentclass
 \usepackage[utf8x]{inputenc}
 \usepackage{listings}
+\usepackage{microtype}
 \usepackage[$geometry paperwidth=6in, paperheight=9in]{geometry}
 $linespace
 \usepackage[spanish]{babel}
@@ -183,12 +186,14 @@ $linespace
             pdfauthor={$author},
             pdftitle={$title}]{hyperref}
 \setcounter{footnote}{0}
+\setlength{\emergencystretch}{2pt}
 \makeatletter
 \@ifundefined{date}{}{\date{}}
 \makeatother
 \renewcommand{\partname}{Parte}
 \begin{document}
 EOF
+# \raggedbottom
 # \renewcommand{\baselinestretch}{2}\normalsize
 # \usepackage[T1]{fontenc}
 
