@@ -132,8 +132,7 @@ ebook-convert "$filename".xhtml "$filename".epub --language es --no-default-epub
 
 # todo: --page-breaks-before h5
 
-ebook-viewer "$filename".epub
+( ebook-viewer "$filename".epub & )
 
 ##### LIMPIEZA DE FICHEROS TEMPORALES #####
-rm "$filename"_temp.md body.tex 2> /dev/null
-
+rm "$filename"_temp.md body.tex "$filename".tex "$filename".xhtml "$filename".xml 2> /dev/null
