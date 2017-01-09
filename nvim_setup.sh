@@ -40,6 +40,7 @@ then
     echo "deb http://ppa.launchpad.net/neovim-ppa/unstable/ubuntu ${array[${option}]} main" | sudo tee -a  /etc/apt/sources.list
 
     # update and install neovim
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8231B6DD
     sudo apt update
     sudo apt install neovim
 fi
@@ -50,7 +51,8 @@ rm -Rf .vim*
 
 # get .vim dir and install plugins
 git clone --recursive https://github.com/johgh/vim .vim
-ln -s .vim ~/config/nvim
+ln -s ~/.vim ~/.config/nvim
+nvim +PlugClean +qall
 nvim +PlugInstall +qall
 
 # if [ -f $HOME/.vim/bundle/YouCompleteMe/install.sh ]

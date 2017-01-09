@@ -29,13 +29,13 @@ usage() { echo "$(basename $0) [-f <a4|a5|b4|b5|c4|c5>] [-m <breaks|rightbreaks|
 
 dependencies() {
     if ! $(gem list | grep kramdown >/dev/null) ||
-        ! dpkg -s texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish psutils okular evince ruby-full &> /dev/null
+        ! dpkg -s texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish texlive-extra-utils evince ruby-full &> /dev/null
     then
         echo -e "Some required dependencies were not found. Would you like to install them? (y/n) \c"
         read
         if [[ "$REPLY" = "y" ]]; then
             sudo apt-get install -y texlive texlive-latex-recommended texlive-latex-extra texlive-lang-spanish
-            sudo apt-get install -y pdfjam
+            sudo apt-get install -y texlive-extra-utils
             sudo apt-get install -y evince
             sudo apt-get install -y ruby-full
             sudo gem install kramdown
