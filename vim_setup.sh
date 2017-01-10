@@ -1,5 +1,5 @@
 #!/bin/bash
-dependencies="exuberant-ctags wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag"
+dependencies="exuberant-ctags wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag xsel"
 dists="trusty utopic vivid wily xenial yakkety"
 
 CHECK_DEPS=$HOME/bin/check_deps
@@ -36,6 +36,7 @@ then
     echo "deb http://ppa.launchpad.net/pi-rho/dev/ubuntu ${array[${option}]} main" | sudo tee -a  /etc/apt/sources.list
 
     # update and install gvim
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 779C27D7
     sudo apt update
     sudo apt install vim vim-gnome
 fi
@@ -46,12 +47,13 @@ rm -Rf .vim*
 
 # get .vim dir and install plugins
 git clone --recursive https://github.com/johgh/vim .vim
-vim -E -u NONE -S ~/.vim/bundles.vim +PluginInstall +qall
+nvim +PlugClean +qall
+nvim +PlugInstall +qall
 
-if [ -f $HOME/.vim/bundle/YouCompleteMe/install.sh ]
-then
-    $HOME/.vim/bundle/YouCompleteMe/install.sh
-fi
+# if [ -f $HOME/.vim/bundle/YouCompleteMe/install.sh ]
+# then
+#     $HOME/.vim/bundle/YouCompleteMe/install.sh
+# fi
 
 # if [ ! -d $HOME/fonts ]
 # then

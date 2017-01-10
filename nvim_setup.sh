@@ -1,5 +1,5 @@
 #!/bin/bash
-dependencies="exuberant-ctags wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag"
+dependencies="exuberant-ctags wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag xsel"
 dists="trusty utopic vivid wily xenial yakkety"
 
 CHECK_DEPS=$HOME/bin/check_deps
