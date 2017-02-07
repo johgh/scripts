@@ -93,14 +93,16 @@ cat <<EOF > "$filename".tex
 \usepackage[T1]{fontenc}
 \usepackage{listings}
 \usepackage[spanish]{babel}
+\usepackage{ragged2e}
 \setcounter{footnote}{0}
 \makeatletter
 \@ifundefined{date}{}{\date{}}
 \makeatother
-\renewcommand{\contentsname}{{ÍNDICE}}
-\renewcommand{\partname}{Parte}
 \begin{document}
 EOF
+
+# \renewcommand{\contentsname}{{ÍNDICE}}
+# \renewcommand{\partname}{Parte}
 
 if [[ " ${included[@]} " =~ " header " ]]; then cat header.tex >> "$filename".tex 2> /dev/null; fi
 if [[ " ${included[@]} " =~ " body " ]]; then cat body.tex >> "$filename".tex 2> /dev/null; fi
@@ -122,13 +124,21 @@ notvalidparts() {
 }
 
 latexml --dest="$filename".xml "$filename".tex >/dev/null 2>&1
-sed -i 's/.*resource.*$//g' "$filename".xml
+sed -i 's/.*resource.*$/<resource src="myepub_styles.css" type="text\/css"\/>/g' "$filename".xml
 sed -i 's/<para\ xml.*//g' "$filename".xml
 sed -i 's/<\/para>//g' "$filename".xml
 latexmlpost -dest="$filename".xhtml "$filename".xml >/dev/null 2>&1
+# -splitpath="//div[contains(@class, 'ltx_role_newpage')]"
 
-ebook-convert "$filename".xhtml "$filename".epub --language es --no-default-epub-cover --use-auto-toc --epub-toc-at-end --remove-paragraph-spacing \
---title 'Pensamiento divergente' --authors 'Jorge Hervás' >/dev/null 2>&1
+sed -i 's/.*ltx_page_footer.*$//g' "$filename".xhtml
+sed -i 's/.*ltx_page_logo.*$//g' "$filename".xhtml
+# add page breaks
+sed -i 's/<div class="ltx_pagination ltx_role_newpage"\/>/<div style="page-break-before:always;"><\/div>/g' "$filename".xhtml
+# add cover
+# sed -i 's/<div class="ltx_document ltx_authors_1line">/<div class="ltx_document ltx_authors_1line"><div class="imgdivcont"><img src="..\/PD_cover\/PD_front_epub.png"\/><\/div><div style="page-break-before:always;"><\/div>/g' "$filename".xhtml
+
+ebook-convert "$filename".xhtml "$filename".epub --cover='../PD_cover/PD_front_epub.png' --preserve-cover-aspect-ratio --language es --no-default-epub-cover --use-auto-toc --epub-toc-at-end --remove-paragraph-spacing \
+--title 'Pensamiento divergente' --authors 'Jorge Hervás'
 
 # todo: --page-breaks-before h5
 
