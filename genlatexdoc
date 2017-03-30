@@ -227,6 +227,8 @@ if [[ "$f" != 'default' ]]; then
     sed -i 's/paperwidth.*$/\]{geometry}/g' "$filename".tex
 fi
 
+# oneside puts number page on center, solution: better play with inner and outer margins..
+# sed -i 's/\\documentclass.*$/\\documentclass[oneside,toc=chapterentrydotfill'"$openany"''"$paper"']{'"$mode"'}/g' "$filename".tex
 sed -i 's/\\documentclass.*$/\\documentclass[twoside,toc=chapterentrydotfill'"$openany"''"$paper"']{'"$mode"'}/g' "$filename".tex
 if [[ $mode == 'scrartcl' ]]; then
     articlestructure

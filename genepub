@@ -123,6 +123,11 @@ notvalidparts() {
     exit 1
 }
 
+
+# sloppy solo sirve para el pdf, se quita
+sed -i 's/beginsloppy//g' "$filename".tex
+sed -i 's/endsloppy//g' "$filename".tex
+
 latexml --dest="$filename".xml "$filename".tex >/dev/null 2>&1
 sed -i 's/.*resource.*$/<resource src="myepub_styles.css" type="text\/css"\/>/g' "$filename".xml
 sed -i 's/<para\ xml.*//g' "$filename".xml
