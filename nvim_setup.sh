@@ -52,7 +52,7 @@ rm -Rf .vim*
 # get .vim dir and install plugins
 git clone --recursive https://github.com/johgh/vim .vim
 ln -s ~/.vim ~/.config/nvim
-nvim +PlugClean +qall
+nvim +PlugClean! +qall
 nvim +PlugInstall +qall
 
 # if [ -f $HOME/.vim/bundle/YouCompleteMe/install.sh ]

@@ -6,7 +6,7 @@ autostart="guake"
 # external scripts
 CHECK_DEPS=$HOME/bin/check_deps
 GET_GITHUB=$HOME/bin/getgithub
-VIM_SETUP=$HOME/bin/vim_setup.sh
+VIM_SETUP=$HOME/bin/nvim_setup.sh
 
 # clone/update my scripts repo
 sudo apt install git
