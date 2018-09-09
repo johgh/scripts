@@ -1,12 +1,15 @@
 #!/bin/bash
-# fist, we update the code (if the first pull fails you will need to commit the local changes you have and do `git pull`again before deploying)
+# this script MUST BE executed always before executing jkdeploy.sh
 cd $HOME/johgh.io-source
+git stash
 git pull
-# this always works and is necessary to get the last (forced) commit from the source
+# this should always works (we stash first)
 cd source
 git fetch --all
 git reset --hard origin/master
 git checkout master
+# reapply stash
+git stash apply
 
 # then, we start VM and notify changes whenever occur
 cd -
