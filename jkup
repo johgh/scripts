@@ -2,16 +2,18 @@
 # this script MUST BE executed always before executing jkdeploy.sh
 cd $HOME/johgh.io-source
 git stash
+# this should always works (as we stash first)
 git pull
-# this should always works (we stash first)
+
 cd source
 git fetch --all
 git reset --hard origin/master
 git checkout master
+
 # reapply stash
+cd $HOME/johgh.io-source
 git stash apply
 
 # then, we start VM and notify changes whenever occur
-cd -
 vagrant up
 while inotifywait -r --exclude ~/johgh.io-source/source -e close_write ~/johgh.io-source; do cd ~/johgh.io-source; vagrant ssh -c '/vagrant/shell/jkrestart.sh'; done
