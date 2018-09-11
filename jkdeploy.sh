@@ -3,7 +3,7 @@ set -e
 # see "help set"
 
 # get git pass
-. $HOME/conf/.alias_functions
+. $HOME/.alias_functions
 
 if [[ -z $1 ]]
 then
