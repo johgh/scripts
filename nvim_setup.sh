@@ -1,12 +1,11 @@
 #!/bin/bash
-# NOTES:
+# this script is now cross-platform (Debian/Arch), so we don't install packages
+# install packages before executing, please see notes below:
+#
+# ubuntu/debian valid package names: "neovim exuberant-ctags wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag xsel"
 # some distros require xclip/xsel package for clipboard support
-# exuberant-ctags is ctags in some distros
-
-# this script is now cross-platform (Debian/Arch), so we don't check packages
-# dependencies="exuberant-ctags wmctrl build-essential cmake python-dev php-codesniffer silversearcher-ag xsel"
-# CHECK_DEPS=$HOME/bin/check_deps
-# $CHECK_DEPS "$dependencies"
+# exuberant-ctags is ctags in Arch
+# ag is the_silver_searcher in Arch
 
 # install fzf
 git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
@@ -22,6 +21,7 @@ ln -s ~/.vim ~/.config/nvim
 nvim +PlugClean! +qall
 nvim +PlugInstall +qall
 
+# install some fonts
 cp -R $HOME/.vim/fonts/* $HOME/.local/share/fonts
 fc-cache -f $HOME/.local/share/fonts
 
