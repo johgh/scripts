@@ -30,7 +30,7 @@ git commit --amend -m "Deploy. See https://github.com/johgh/johgh.io-source for 
 git push origin master --force
 
 cd ..
-git add source
+git add -f source
 git commit -m "Commited submodule source."
 git push
 
