@@ -18,6 +18,10 @@ rm -Rf .vim*
 # get .vim dir and install plugins
 git clone --recursive https://github.com/johgh/vim .vim
 ln -s ~/.vim ~/.config/nvim
+
+# symlink .vimrc to $HOME
+ln -fs $HOME/.vim/vimrc $HOME/.vimrc
+
 nvim +PlugClean! +qall
 nvim +PlugInstall +qall
 
@@ -33,5 +37,3 @@ $phpCodeSnifferConfig = array (
 ?>"
 echo "$content" | sudo tee /etc/php-codesniffer/CodeSniffer.conf > /dev/null
 
-# symlink .vimrc to $HOME
-ln -fs $HOME/.vim/vimrc $HOME/.vimrc
