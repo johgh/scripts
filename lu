@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ ! -z $1 ]; then
+    cd $HOME/LaravelProjects/$1
+    bash vendor/bin/sail up &
+    npx mix watch
+fi

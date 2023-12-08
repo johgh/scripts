@@ -1,0 +1,8 @@
+#!/bin/bash
+IFS=$'\n'       # make newlines the only separator
+
+for FILE in `find . -name "*.cbz"`
+do
+    touch "$FILE"
+done
+

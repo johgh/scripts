@@ -1,0 +1,10 @@
+#!/bin/bash
+IFS=$'\n'       # make newlines the only separator
+
+for FILE in `find . -name "*.zip"`
+do
+    BASENAME=`basename $FILE .zip`
+    DIRNAME=`dirname $FILE`
+    mv "$FILE" "$DIRNAME/$BASENAME".cbz
+done
+

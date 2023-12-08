@@ -1,0 +1,12 @@
+#!/bin/bash
+IFS=$'\n'       # make newlines the only separator
+
+for FILE in `find . -type d | grep -P '^(?!.*\.mb_thumbs).*$' | cat`
+do
+    if [ -d "$FILE/.mb_thumbs" ]; then
+        echo "Compressed $FILE"
+        zip -j "$FILE.zip" "$FILE"/*
+        trash "$FILE"
+    fi
+done
+
